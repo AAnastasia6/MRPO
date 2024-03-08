@@ -1,0 +1,214 @@
+from dataclasses import dataclass
+from typing import List
+
+@dataclass
+class Client:
+    full_name: str
+    address: str
+    phone: str
+
+@dataclass
+class Master:
+    full_name: str
+    phone: str
+    branch_id: int
+
+@dataclass
+class Service:
+    name: str
+    price: float
+
+@dataclass
+class Branch:
+    address: str
+
+@dataclass
+class Review:
+    content: str
+    rating: int
+    client_id: int
+    service_id: int
+
+@dataclass
+class Product:
+    name: str
+    price: float
+
+@dataclass
+class Administrator:
+    full_name: str
+    phone: str
+    branch_id: int
+
+@dataclass
+class Promotion:
+    name: str
+    discount: float
+    service_id: int
+    administrator_id: int
+
+@dataclass
+class Session:
+    date: str
+    service_id: int
+    client_id: int
+    master_id: int
+
+@dataclass
+class Purchase:
+    date: str
+    quantity: int
+    client_id: int
+    product_id: int
+    branch_id: int
+
+# Пример продолжения фейкового репозитория с методами для остальных сущностей
+
+class FakeRepository:
+    def __init__(self):
+        self.clients = []
+        self.masters = []
+        self.services = []
+        self.branches = []
+        self.reviews = []
+        self.products = []
+        self.administrators = []
+        self.promotions = []
+        self.sessions = []
+        self.purchases = []
+
+    def add_client(self, client: Client):
+        self.clients.append(client)
+
+    def get_clients(self) -> List[Client]:
+        return self.clients
+
+    def add_master(self, master: Master):
+        self.masters.append(master)
+
+    def get_masters(self) -> List[Master]:
+        return self.masters
+
+    def add_service(self, service: Service):
+        self.services.append(service)
+
+    def get_services(self) -> List[Service]:
+        return self.services
+
+    def add_branch(self, branch: Branch):
+        self.branches.append(branch)
+
+    def get_branches(self) -> List[Branch]:
+        return self.branches
+
+    def add_review(self, review: Review):
+        self.reviews.append(review)
+
+    def get_reviews(self) -> List[Review]:
+        return self.reviews
+
+    def add_product(self, product: Product):
+        self.products.append(product)
+
+    def get_products(self) -> List[Product]:
+        return self.products
+
+    def add_administrator(self, administrator: Administrator):
+        self.administrators.append(administrator)
+
+    def get_administrators(self) -> List[Administrator]:
+        return self.administrators
+
+    def add_promotion(self, promotion: Promotion):
+        self.promotions.append(promotion)
+
+    def get_promotions(self) -> List[Promotion]:
+        return self.promotions
+
+    def add_session(self, session: Session):
+        self.sessions.append(session)
+
+    def get_sessions(self) -> List[Session]:
+        return self.sessions
+
+    def add_purchase(self, purchase: Purchase):
+        self.purchases.append(purchase)
+
+    def get_purchases(self) -> List[Purchase]:
+        return self.purchases
+
+# Пример использования для всех сущностей и их методов
+
+repo = FakeRepository()
+
+# Добавление и получение клиентов
+client1 = Client("Alice Johnson", "ул.Мира 40", "123-4567")
+repo.add_client(client1)
+clients = repo.get_clients()
+for client in clients:
+    print(client)
+
+# Добавление и получение филиалов
+branch1 = Branch("ул. Мира 20")
+repo.add_branch(branch1)
+branches = repo.get_branches()
+for branch in branches:
+    print(branch)
+
+# Добавление и получение мастеров
+master1 = Master("Николаев Николай", "555-4321", branch1)
+repo.add_master(master1)
+masters = repo.get_masters()
+for master in masters:
+    print(master)
+
+# Добавление и получение услуг
+service1 = Service("Стрижка", 800.00)
+repo.add_service(service1)
+services = repo.get_services()
+for service in services:
+    print(service)
+
+
+
+# Добавление и получение отзывов
+review1 = Review("Хорошее обслуживание",5, client1, service1)
+repo.add_review(review1)
+reviews = repo.get_reviews()
+for review in reviews:
+    print(review)
+
+# Добавление и получение продуктов
+product1 = Product("Шампунь", 1000.00)
+repo.add_product(product1)
+products = repo.get_products()
+for product in products:
+    print(product)
+
+# Добавление и получение администраторов
+admin1 = Administrator("Admin1", "89246087463", branch1)
+repo.add_administrator(admin1)
+admins = repo.get_administrators()
+for admin in admins:
+    print(admin)
+
+# Добавление и получение акций
+promotion1 = Promotion("Summer Sale", 20, service1, admin1)
+repo.add_promotion(promotion1)
+promotions = repo.get_promotions()
+for promotion in promotions:
+    print(promotion)
+
+# Добавление и получение сеансов
+session1 = Session("2024-02-20 10:00", service1, client1, master1)
+repo.add_session(session1)
+sessions = repo.get_sessions()
+for session in sessions:
+    print(session)
+
+# Добавление и получение покупок
+purchase1 = Purchase("2024-02-20 11:00", 2, client1, product1, branch1)
+repo.add_purchase(purchase1)
+purchases = repo.get_purchases()
+for purchase in purchases:
+    print(purchase)
