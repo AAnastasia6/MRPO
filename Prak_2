@@ -7,60 +7,92 @@ class Client:
     address: str
     phone: str
 
+    def __init__(self, full_name: str, address: str, phone: str):
+        self.full_name = full_name
+        self.address = address
+        self.phone = phone
+
 @dataclass
 class Master:
     full_name: str
     phone: str
     branch_id: int
+    time_job: str
 
-@dataclass
-class Service:
-    name: str
-    price: float
-
-@dataclass
-class Branch:
-    address: str
-
-@dataclass
-class Review:
-    content: str
-    rating: int
-    client_id: int
-    service_id: int
-
-@dataclass
-class Product:
-    name: str
-    price: float
+    def __init__(self, full_name: str, phone: str, branch_id: int, time_job: str):
+        self.full_name = full_name
+        self.phone = phone
+        self.branch_id = branch_id
+        self.time_job = time_job
 
 @dataclass
 class Administrator:
     full_name: str
     phone: str
     branch_id: int
+    time_job: str
 
-@dataclass
+    def __init__(self, full_name: str, phone: str, branch_id: int, time_job: str):
+        self.full_name = full_name
+        self.phone = phone
+        self.branch_id = branch_id
+        self.time_job = time_job
+
+@dataclass(frozen=True)
+class Service:
+    name: str
+    price: float
+
+@dataclass(frozen=True)
+class Branch:
+    address: str
+
+@dataclass(frozen=True)
+class Review:
+    content: str
+    rating: int
+    client_id: int
+    service_id: int
+
+@dataclass(frozen=True)
+class Product:
+    name: str
+    price: float
+    count: int
+
+@dataclass(frozen=True)
 class Promotion:
     name: str
     discount: float
     service_id: int
     administrator_id: int
 
-@dataclass
+@dataclass(frozen=True)
 class Session:
     date: str
     service_id: int
     client_id: int
     master_id: int
 
-@dataclass
+@dataclass(frozen=True)
 class Purchase:
     date: str
     quantity: int
     client_id: int
     product_id: int
     branch_id: int
+
+@dataclass
+class Provider:
+    name: str
+
+    def __init__(self, name: str):
+        self.name = name
+
+
+# Переопределение оператора равенства для классов-сущностей (для всех, кроме Object-значений)
+def __eq__(self, other):
+    return self.__dict__ == other.__dict__
 
 # Пример продолжения фейкового репозитория с методами для остальных сущностей
 
@@ -76,6 +108,13 @@ class FakeRepository:
         self.promotions = []
         self.sessions = []
         self.purchases = []
+        self.provider = []
+
+    def add_provider(self, provider: Client):
+        self.provider.append(provider)
+
+    def get_provider(self) -> List[Provider]:
+        return self.provider
 
     def add_client(self, client: Client):
         self.clients.append(client)
@@ -156,7 +195,7 @@ for branch in branches:
     print(branch)
 
 # Добавление и получение мастеров
-master1 = Master("Николаев Николай", "555-4321", branch1)
+master1 = Master("Николаев Николай", "555-4321", branch1, "11:00 - 21:00")
 repo.add_master(master1)
 masters = repo.get_masters()
 for master in masters:
@@ -179,14 +218,14 @@ for review in reviews:
     print(review)
 
 # Добавление и получение продуктов
-product1 = Product("Шампунь", 1000.00)
+product1 = Product("Шампунь", 1000.00, 10)
 repo.add_product(product1)
 products = repo.get_products()
 for product in products:
     print(product)
 
 # Добавление и получение администраторов
-admin1 = Administrator("Admin1", "89246087463", branch1)
+admin1 = Administrator("Admin1", "89246087463", branch1, "11:00 - 21:00")
 repo.add_administrator(admin1)
 admins = repo.get_administrators()
 for admin in admins:
@@ -212,3 +251,10 @@ repo.add_purchase(purchase1)
 purchases = repo.get_purchases()
 for purchase in purchases:
     print(purchase)
+
+# Добавление и получение покупок
+provider1 = Provider("Ельсев")
+repo.add_provider(provider1)
+provider = repo.get_provider()
+for providerr in provider:
+    print(provider)
