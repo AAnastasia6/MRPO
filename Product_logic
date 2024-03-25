@@ -1,0 +1,137 @@
+# Клиенты могут приобрести только существующие товары.
+# Клиенты не могут приобрести товары в большем количестве, чем есть в наличии.
+# Товары можно заказывать только у зарегестрированные (существующие) поставщики.
+# Заказать можно только зарегестрированные в системе товары
+
+
+from dataclasses import dataclass
+from typing import List
+
+@dataclass
+class Client:
+    client_id: int
+    full_name: str
+    address: str
+    phone: str
+
+@dataclass
+class Administrator:
+    administrator_id: int
+    full_name: str
+    phone: str
+    branch_id: int
+    time_job: str
+
+@dataclass(frozen=True)
+class Branch:
+    branch_id: int
+    address: str
+
+@dataclass
+class Product:
+    product_id: int
+    name: str
+    price: float
+    count: int
+
+@dataclass(frozen=True)
+class Purchase:
+    purchase_id: int
+    date: str
+    quantity: int
+    client_id: int
+    product_id: int
+    branch_id: int
+
+@dataclass(frozen=True)
+class Provider:
+    provider_id: int
+    name: str
+
+# Создаем фейковый репозиторий с данными
+clients = [Client(1, "Иван Иванов", "ул. Пушкина, д.1", "+7 999 123 45 67"),
+           Client(2, "Мария Петрова", "ул. Ленина, д.10", "+7 987 654 32 10"),
+           Client(3, "Алексей Сидоров", "ул. Маяковского, д.5", "+7 911 222 33 44"),
+           Client(4, "Елена Кузнецова", "ул. Гагарина, д.15", "+7 919 876 54 32"),
+           Client(5, "Павел Новиков", "ул. Чехова, д.3", "+7 925 111 22 33")]
+
+administrators = [Administrator(1, "Петр Смирнов", "+7 999 111 22 33", 1, "9 - 16"),
+                  Administrator(2, "Анна Иванова", "+7 999 222 33 44", 2, "10 - 17"),
+                  Administrator(3, "Игорь Попов", "+7 999 333 44 55", 1, "8 - 15"),
+                  Administrator(4, "Наталья Зайцева", "+7 999 444 55 66", 3, "11 - 18"),
+                  Administrator(5, "Максим Львов", "+7 999 555 66 77", 2, "10 - 17")]
+
+branches = [Branch(1, "ул. Ленинградская, д.20"),
+            Branch(2, "пр. Победы, д.3"),
+            Branch(3, "ул. Московская, д.50")]
+
+products = [Product(1, "Бальзам для бороды", 60.0, 100),
+            Product(2, "Шампунь для мужчин", 30.0, 200),
+            Product(3, "Гель для стайлинга волос", 50.0, 150),
+            Product(4, "Крем после бритья", 90.0, 120),
+            Product(5, "Средства для укрепления волос", 40.0, 180)]
+
+providers = [Provider(1, "ООО Поставщик1"),
+             Provider(2, "ИП Иванов"),
+             Provider(3, "ООО Поставщик2"),
+             Provider(4, "ИП Петров"),
+             Provider(5, "ООО Поставщик3")]
+
+purchases = [Purchase(1, "2024-01-24", 2, 2, 3, 1)]
+def check_purchase(purchase_id, date, quantity, client_id, product_id, branch_id):
+    chosen_product = next((product for product in products if product.product_id == product_id), None)
+
+    if not chosen_product:
+        print("Выбранный товар не существует.")
+        return
+
+    if quantity > chosen_product.count:
+        print("Недостаточное количество товара.")
+        return
+
+    new_purchase_id = max(purchase.purchase_id for purchase in purchases) + 1
+    new_purchase = Purchase(new_purchase_id, date, quantity, client_id, product_id, branch_id)
+    purchases.append(new_purchase)
+
+    chosen_product.count -= quantity
+    print(f"Покупка товара {chosen_product.name} успешно оформлена. Остаток: {chosen_product.count}")
+
+
+def check_supply(product_id, counts_provide, provider_id):
+    chosen_provider = next((provider for provider in providers if provider.provider_id == provider_id), None)
+
+    if not chosen_provider:
+        print("Выбранный поставщик не существует.")
+        return
+
+    chosen_product = next((product for product in products if product.product_id == product_id), None)
+
+    if not chosen_product:
+        print("Выбранный товар не найден.")
+        return
+
+    chosen_product.count += counts_provide
+    print(
+        f"Поставка товара {chosen_product.name} от поставщика {chosen_provider.name}. Обновленное количество: {chosen_product.count}")
+
+
+# Покрытие функций юнит-тестами
+import unittest
+
+
+class TestPurchaseSupplyFunctions(unittest.TestCase):
+    def test_check_purchase_invalid_product(self):
+        self.assertIsNone(check_purchase(1, "2024-03-24", 150, 1, 10, 1), "Expected None")
+
+    def test_check_purchase_insufficient_quantity(self):
+        self.assertIsNone(check_purchase(2, "2024-03-25", 300, 2, 2, 2), "Expected None")
+
+    def test_check_supply_invalid_provider(self):
+        self.assertIsNone(check_supply(1, 50, 10), "Expected None")
+
+    def test_check_supply_invalid_product(self):
+        self.assertIsNone(check_supply(10, 100, 1), "Expected None")
+
+
+if __name__ == '__main__':
+    unittest.main()
