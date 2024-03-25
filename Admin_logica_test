@@ -1,0 +1,149 @@
+from dataclasses import dataclass
+from typing import List
+
+
+# Администраторы могут создавать акции только для существующих услуг.
+# Администраторы могут создавать акции только для своего филиала.
+# Администраторы могут регистрировать мастеров в системе тоько в свой филиал
+# Часы работы мастера не могут превышать 6 часов в день.
+
+
+
+@dataclass
+class Master:
+    master_id: int
+    full_name: str
+    phone: str
+    branch_id: int
+    time_job: str
+
+@dataclass
+class Administrator:
+    administrator_id: int
+    full_name: str
+    phone: str
+    branch_id: int
+    time_job: str
+
+@dataclass
+class Service:
+    service_id: int
+    name: str
+    price: float
+
+@dataclass(frozen=True)
+class Branch:
+    branch_id: int
+    address: str
+
+@dataclass(frozen=True)
+class Promotion:
+    promotion_id: int
+    name: str
+    discount: float
+    service_id: int
+    administrator_id: int
+
+# Создаем фейковый репозиторий с данными
+masters = [Master(1, "Иван Иванов", "+7 999 123 45 67", 1, "9 - 16"),
+           Master(2, "Мария Петрова", "+7 987 654 32 10", 2, "10 - 17"),
+           Master(3, "Алексей Сидоров", "+7 911 222 33 44", 1, "8 - 15"),
+           Master(4, "Елена Кузнецова", "+7 919 876 54 32", 3, "11 - 18"),
+           Master(5, "Павел Новиков", "+7 925 111 22 33", 2, "10 - 17")]
+
+administrators = [Administrator(1, "Петр Смирнов", "+7 999 111 22 33", 1, "9 - 16"),
+                  Administrator(2, "Анна Иванова", "+7 999 222 33 44", 2, "10 - 17"),
+                  Administrator(3, "Игорь Попов", "+7 999 333 44 55", 1, "8 - 15"),
+                  Administrator(4, "Наталья Зайцева", "+7 999 444 55 66", 3, "11 - 18"),
+                  Administrator(5, "Максим Львов", "+7 999 555 66 77", 2, "10 - 17")]
+
+services = [Service(1, "Стрижка мужская", 1500.0),
+            Service(2, "Стрижка бороды", 2000.0),
+            Service(3, "Бритье классическое", 1000.0),
+            Service(4, "Окрашивание волос", 2500.0),
+            Service(5, "Массаж головы", 1800.0)]
+
+branches = [Branch(1, "ул. Ленинградская, д.20"),
+            Branch(2, "пр. Победы, д.3"),
+            Branch(3, "ул. Московская, д.50")]
+
+promotions = [Promotion(1, "Скидка на стрижку", 10.0, 1, 1),
+              Promotion(2, "Акция 'Стрижка + укладка'", 15.0, 3, 2),
+              Promotion(3, "Специальное предложение на массаж", 20.0, 5, 4),
+              Promotion(4, "Выгодное окрашивание", 12.0, 4, 3),
+              Promotion(5, "Бритьё по супер цене", 8.0, 2, 5)]
+
+
+def check_create_promotion(branch_id, administrator_id, service_id, name, discount):
+    chosen_administrator = next(
+        (administrator for administrator in administrators if administrator.administrator_id == administrator_id), None)
+
+    if not chosen_administrator:
+        print("Выбранный администратор не найден.")
+        return
+
+    if chosen_administrator.branch_id != branch_id:
+        print("Администратор не работает в выбранном филиале.")
+        return
+
+    chosen_service = next((service for service in services if service.service_id == service_id), None)
+
+    if not chosen_service:
+        print("Выбранная услуга не найдена.")
+        return
+
+    new_promotion_id = max(promotion.promotion_id for promotion in promotions) + 1
+    new_promotion = Promotion(new_promotion_id, name, discount, service_id, administrator_id)
+    promotions.append(new_promotion)
+    print("Акция успешно создана.")
+
+
+def check_add_master(administrator_id, branch_id, full_name, phone, time_job):
+    chosen_administrator = next(
+        (administrator for administrator in administrators if administrator.administrator_id == administrator_id), None)
+
+    if not chosen_administrator:
+        print("Выбранный администратор не найден.")
+        return
+
+    if chosen_administrator.branch_id != branch_id:
+        print("Администратор не работает в выбранном филиале.")
+        return
+
+    start, end = map(int, time_job.split(" - "))
+
+    if end - start > 6:
+        print("Рабочий день мастера превышает 6 часов.")
+        print(f"Максимальное допустимое время работы: 6 часов. Рабочий день мастера: {end - start} часов.")
+        return
+
+    new_master_id = max(master.master_id for master in masters) + 1
+    new_master = Master(new_master_id, full_name, phone, branch_id, time_job)
+    masters.append(new_master)
+    print("Мастер успешно добавлен.")
+
+
+# Покрытие функций юнит-тестами
+import unittest
+
+
+class TestPromotionMasterFunctions(unittest.TestCase):
+    def test_check_create_promotion_invalid_administrator(self):
+        self.assertIsNone(check_create_promotion(1, 3, 1, "Скидка на стрижку", 10.0), "Expected None")
+
+    def test_check_create_promotion_invalid_service(self):
+        self.assertIsNone(check_create_promotion(2, 2, 10, "Акция 'Стрижка + укладка'", 15.0), "Expected None")
+
+    def test_check_add_master_invalid_administrator(self):
+        self.assertIsNone(check_add_master(1, 2, "Екатерина Смирнова", "+7 999 777 88 99", "9 - 18"), "Expected None")
+
+
+    def test_check_add_master_invalid_administrator_1(self):
+        self.assertIsNone(check_add_master(10, 2, "Екатерина Смирнова", "+7 999 777 88 99", "9 - 18"), "Expected None")
+
+    def test_check_add_master_long_working_hours(self):
+        self.assertIsNone(check_add_master(1, 1, "Павел Сидоров", "+7 999 000 11 22", "9 - 21"), "Expected None")
+
+
+if __name__ == '__main__':
+    unittest.main()
