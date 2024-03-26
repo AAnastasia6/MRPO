@@ -1,0 +1,29 @@
+# Покрытие функций юнит-тестами
+import unittest
+
+
+class TestPromotionMasterFunctions(unittest.TestCase):
+
+    # Проверка на ошибку неверно выбранной услуги
+    def test_check_create_promotion_invalid_service(self):
+        result = check_create_promotion(2, 2, 10, "Акция 'Стрижка + укладка'", 15.0)
+        self.assertEqual(result, "Выбранная услуга не найдена.", "Метод не вернул ожидаемое сообщение")
+
+    # Проверка на ошибку при попытке администратора выбрать филиал, в котором он не работает
+    def test_check_add_master_invalid_administrator(self):
+        result = check_add_master(1, 2, "Екатерина Смирнова", "+7 999 777 88 99", "9 - 18")
+        self.assertEqual(result, "Администратор не работает в выбранном филиале.", "Метод не вернул ожидаемое сообщение")
+
+    # Проверка на ошибку несуществующего администратора
+    def test_check_add_master_invalid_administrator_1(self):
+        result = check_add_master(10, 2, "Екатерина Смирнова", "+7 999 777 88 99", "9 - 18")
+        self.assertEqual(result, "Выбранный администратор не найден.", "Метод не вернул ожидаемое сообщение")
+
+    # Проверка на ошибку при попытке задать мастеру часы работы превышающие норму
+    def test_check_add_master_long_working_hours(self):
+        result = check_add_master(1, 1, "Павел Сидоров", "+7 999 000 11 22", "9 - 21")
+        self.assertEqual(result, "Рабочий день мастера превышает 6 часов.", "Метод не вернул ожидаемое сообщение")
+
+
+if __name__ == '__main__':
+    unittest.main()
