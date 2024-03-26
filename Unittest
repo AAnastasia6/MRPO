@@ -1,0 +1,30 @@
+# Покрытие функций юнит-тестами
+import unittest
+
+
+class TestPurchaseSupplyFunctions(unittest.TestCase):
+
+    # Проверка на ошибку существования товара при попытке купить товар
+    def test_check_purchase_invalid_product(self):
+        result = check_purchase(1, "2024-03-24", 150, 1, 10, 1)
+        self.assertEqual(result, "Выбранный товар не существует.", "Метод не вернул ожидаемое сообщение")
+
+
+    # Проверка на ошибку "Недостаточное количество товара"
+    def test_check_purchase_insufficient_quantity(self):
+        result = check_purchase(2, "2024-03-25", 300, 2, 2, 2)
+        self.assertEqual(result, "Недостаточное количество товара.", "Метод не вернул ожидаемое сообщение")
+
+    # Проверка на ошибку существования поставщика при попытке заказать товар
+    def test_check_supply_invalid_provider(self):
+        result = check_supply(1, 50, 10)
+        self.assertEqual(result, "Выбранный поставщик не существует.", "Метод не вернул ожидаемое сообщение")
+
+    # Проверка на ошибку существования товара при попытке заказать его
+    def test_check_supply_invalid_product(self):
+        result = check_supply(10, 100, 1)
+        self.assertEqual(result, "Выбранный товар не найден.", "Метод не вернул ожидаемое сообщение")
+
+
+if __name__ == '__main__':
+    unittest.main()
