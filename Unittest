@@ -1,0 +1,30 @@
+# Покрытие функций юнит-тестами
+import unittest
+
+
+class TestBookingReviewFunctions(unittest.TestCase):
+
+    # Проверка на ошибку несоответствия выбранного филиала и мастера, который должен в нём работать
+    def test_check_booking_master_not_in_branch(self):
+        result = check_booking(1, 2, 1, 1, "2024-03-24 10:00")
+        self.assertEqual(result, "Мастер не работает в выбранном филиале.", "Метод не вернул ожидаемое сообщение")
+
+    # Проверка на ошибку несоответствия рабочим часам мастера
+    def test_check_booking_invalid_time(self):
+        result = check_booking(2, 1, 1, 1, "2024-03-24 17:00")
+        self.assertEqual(result, "Выбранное время не соответствует рабочим часам мастера.", "Метод не вернул ожидаемое сообщение")
+
+    # Проверка на ошибку занятости выбранного времени
+    def test_check_booking_already_booked(self):
+        result = check_booking(3, 1, 3, 3, "2024-03-26 11:00")
+        self.assertEqual(result, "Выбранное время уже занято.", "Метод не вернул ожидаемое сообщение")
+
+    # Проверка на ошибку попытки оставить отзыв на услугу, на которую клиент не записан
+    def test_leave_review_invalid_session_id(self):
+        result = leave_review(1, 9, "Great service!", 5)
+        self.assertEqual(result, "Неверный идентификатор записи клиента на услугу.", "Метод не вернул ожидаемое сообщение")
+
+
+
+if __name__ == '__main__':
+    unittest.main()
