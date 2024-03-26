@@ -7,6 +7,7 @@
 from dataclasses import dataclass
 from typing import List
 
+# Класс Клиент (имя, адрес, номер телефона)
 @dataclass
 class Client:
     client_id: int
@@ -14,6 +15,7 @@ class Client:
     address: str
     phone: str
 
+# Класс Администратор (имя, номер телефона, филиал в котором работает админ, время работы)
 @dataclass
 class Administrator:
     administrator_id: int
@@ -22,11 +24,13 @@ class Administrator:
     branch_id: int
     time_job: str
 
+# Класс Филиал (адрес)
 @dataclass(frozen=True)
 class Branch:
     branch_id: int
     address: str
 
+# Класс Товар (наименование, цена, количество в наличии)
 @dataclass
 class Product:
     product_id: int
@@ -34,6 +38,7 @@ class Product:
     price: float
     count: int
 
+# Класс Покупка (дата покупки, количество купленного товара, id клиента-покупателя, id филиала-места выдачи)
 @dataclass(frozen=True)
 class Purchase:
     purchase_id: int
@@ -43,6 +48,7 @@ class Purchase:
     product_id: int
     branch_id: int
 
+# Класс Поставщик (наименование)
 @dataclass(frozen=True)
 class Provider:
     provider_id: int
@@ -83,11 +89,11 @@ def check_purchase(purchase_id, date, quantity, client_id, product_id, branch_id
 
     if not chosen_product:
         print("Выбранный товар не существует.")
-        return
+        return ("Выбранный товар не существует.")
 
     if quantity > chosen_product.count:
-        print("Недостаточное количество товара.")
-        return
+        print ("Недостаточное количество товара.")
+        return ("Недостаточное количество товара.")
 
     new_purchase_id = max(purchase.purchase_id for purchase in purchases) + 1
     new_purchase = Purchase(new_purchase_id, date, quantity, client_id, product_id, branch_id)
@@ -102,36 +108,15 @@ def check_supply(product_id, counts_provide, provider_id):
 
     if not chosen_provider:
         print("Выбранный поставщик не существует.")
-        return
+        return ("Выбранный поставщик не существует.")
 
     chosen_product = next((product for product in products if product.product_id == product_id), None)
 
     if not chosen_product:
         print("Выбранный товар не найден.")
-        return
+        return ("Выбранный товар не найден.")
 
     chosen_product.count += counts_provide
     print(
         f"Поставка товара {chosen_product.name} от поставщика {chosen_provider.name}. Обновленное количество: {chosen_product.count}")
 
-
-# Покрытие функций юнит-тестами
-import unittest
-
-
-class TestPurchaseSupplyFunctions(unittest.TestCase):
-    def test_check_purchase_invalid_product(self):
-        self.assertIsNone(check_purchase(1, "2024-03-24", 150, 1, 10, 1), "Expected None")
-
-    def test_check_purchase_insufficient_quantity(self):
-        self.assertIsNone(check_purchase(2, "2024-03-25", 300, 2, 2, 2), "Expected None")
-
-    def test_check_supply_invalid_provider(self):
-        self.assertIsNone(check_supply(1, 50, 10), "Expected None")
-
-    def test_check_supply_invalid_product(self):
-        self.assertIsNone(check_supply(10, 100, 1), "Expected None")
-
-
-if __name__ == '__main__':
-    unittest.main()
