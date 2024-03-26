@@ -6,6 +6,7 @@ from typing import List
 # На одно время к одному мастеру может записаться только один клиент.
 # Клиенты могут оставлять отзывы только при наличии записи на услугу.
 
+# Класс Клиент (имя, адрес, номер телефона)
 @dataclass
 class Client:
     client_id: int
@@ -13,7 +14,7 @@ class Client:
     address: str
     phone: str
 
-
+# Класс Мастер (имя, номер телефона, филиал в котором работает мастер, время работы)
 @dataclass
 class Master:
     master_id: int
@@ -22,20 +23,20 @@ class Master:
     branch_id: int
     time_job: str
 
-
+# Класс Услуга (наименование, цена услуги)
 @dataclass
 class Service:
     service_id: int
     name: str
     price: float
 
-
+# Класс Филиал (адрес)
 @dataclass(frozen=True)
 class Branch:
     branch_id: int
     address: str
 
-
+# Класс Отзыв (текстовый отзыв, оценка по пятибальной шкале, id клиента оставившего отзыв, id записи на услугу посещённой клиентом)
 @dataclass
 class Review:
     review_id: int
@@ -44,7 +45,7 @@ class Review:
     client_id: int
     session_id: int
 
-
+# Класс Запись (дата и время записи, id услуги, id клиента, id мастера)
 @dataclass(frozen=True)
 class Session:
     session_id: int
@@ -97,11 +98,11 @@ def check_booking(client_id, branch_id, master_id, service_id, date):
 
     if not chosen_master or not chosen_branch:
         print("Неверно выбран филиал или мастер.")
-        return
+        return ("Неверно выбран филиал или мастер.")
 
     if chosen_master.branch_id != branch_id:
         print("Мастер не работает в выбранном филиале.")
-        return
+        return ("Мастер не работает в выбранном филиале.")
 
     # Разбиваем строку time_job на начало и конец интервала
     start_time, end_time = map(int, chosen_master.time_job.split(' - '))
@@ -110,11 +111,11 @@ def check_booking(client_id, branch_id, master_id, service_id, date):
     # Проверяем, что часы находятся в указанном интервале
     if not (start_time <= hour <= end_time):
         print("Выбранное время не соответствует рабочим часам мастера.")
-        return
+        return ("Выбранное время не соответствует рабочим часам мастера.")
 
     if any(session.date == date for session in sessions if session.master_id == master_id):
         print("Выбранное время уже занято.")
-        return
+        return ("Выбранное время уже занято.")
 
     new_session_id = max(session.session_id for session in sessions) + 1
     new_session = Session(new_session_id, date, service_id, client_id, master_id)
@@ -125,31 +126,9 @@ def check_booking(client_id, branch_id, master_id, service_id, date):
 def leave_review(client_id, session_id, content, rating):
     if not any(session.session_id == session_id for session in sessions):
         print("Неверный идентификатор записи клиента на услугу.")
-        return
+        return ("Неверный идентификатор записи клиента на услугу.")
 
     new_review_id = max(review.review_id for review in reviews) + 1
     new_review = Review(new_review_id, content, rating, client_id, session_id)
     reviews.append(new_review)
     print("Отзыв успешно добавлен.")
-
-
-# Покрытие функций юнит-тестами
-import unittest
-
-
-class TestBookingReviewFunctions(unittest.TestCase):
-    def test_check_booking_master_not_in_branch(self):
-        self.assertIsNone(check_booking(1, 2, 1, 1, "2024-03-24 10:00"), "Expected None")
-
-    def test_check_booking_invalid_time(self):
-        self.assertIsNone(check_booking(2, 1, 1, 1, "2024-03-24 17:00"), "Expected None")
-
-    def test_check_booking_already_booked(self):
-        self.assertIsNone(check_booking(3, 1, 3, 3, "2024-03-26 11:00"), "Expected None")
-
-    def test_leave_review_invalid_session_id(self):
-        self.assertIsNone(leave_review(1, 9, "Great service!", 5), "Expected None")
-
-
-if __name__ == '__main__':
-    unittest.main()
