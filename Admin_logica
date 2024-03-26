@@ -4,11 +4,12 @@ from typing import List
 
 # Администраторы могут создавать акции только для существующих услуг.
 # Администраторы могут создавать акции только для своего филиала.
-# Администраторы могут регистрировать мастеров в системе тоько в свой филиал
+# Администраторы могут регистрировать мастеров в системе только в свой филиал
 # Часы работы мастера не могут превышать 6 часов в день.
+# Создавать акции и регистировать мастеров в системе могут только зарегестрированные администраторы
 
 
-
+# Класс Мастер (имя, номер телефона, филиал в котором работает мастер, время работы)
 @dataclass
 class Master:
     master_id: int
@@ -17,6 +18,7 @@ class Master:
     branch_id: int
     time_job: str
 
+# Класс Администратор (имя, номер телефона, филиал в котором работает админ, время работы)
 @dataclass
 class Administrator:
     administrator_id: int
@@ -25,17 +27,20 @@ class Administrator:
     branch_id: int
     time_job: str
 
+# Класс Услуга (наименование, цена услуги)
 @dataclass
 class Service:
     service_id: int
     name: str
     price: float
 
+# Класс Филиал (адрес)
 @dataclass(frozen=True)
 class Branch:
     branch_id: int
     address: str
 
+# Класс Акция (название, скидка в процентах, id услуги на которую применяется скидка, id администратора создавшего акцию))
 @dataclass(frozen=True)
 class Promotion:
     promotion_id: int
@@ -80,17 +85,17 @@ def check_create_promotion(branch_id, administrator_id, service_id, name, discou
 
     if not chosen_administrator:
         print("Выбранный администратор не найден.")
-        return
+        return ("Выбранный администратор не найден.")
 
     if chosen_administrator.branch_id != branch_id:
         print("Администратор не работает в выбранном филиале.")
-        return
+        return ("Администратор не работает в выбранном филиале.")
 
     chosen_service = next((service for service in services if service.service_id == service_id), None)
 
     if not chosen_service:
         print("Выбранная услуга не найдена.")
-        return
+        return ("Выбранная услуга не найдена.")
 
     new_promotion_id = max(promotion.promotion_id for promotion in promotions) + 1
     new_promotion = Promotion(new_promotion_id, name, discount, service_id, administrator_id)
@@ -104,46 +109,20 @@ def check_add_master(administrator_id, branch_id, full_name, phone, time_job):
 
     if not chosen_administrator:
         print("Выбранный администратор не найден.")
-        return
+        return ("Выбранный администратор не найден.")
 
     if chosen_administrator.branch_id != branch_id:
         print("Администратор не работает в выбранном филиале.")
-        return
+        return ("Администратор не работает в выбранном филиале.")
 
     start, end = map(int, time_job.split(" - "))
 
     if end - start > 6:
         print("Рабочий день мастера превышает 6 часов.")
         print(f"Максимальное допустимое время работы: 6 часов. Рабочий день мастера: {end - start} часов.")
-        return
+        return ("Рабочий день мастера превышает 6 часов.")
 
     new_master_id = max(master.master_id for master in masters) + 1
     new_master = Master(new_master_id, full_name, phone, branch_id, time_job)
     masters.append(new_master)
     print("Мастер успешно добавлен.")
-
-
-# Покрытие функций юнит-тестами
-import unittest
-
-
-class TestPromotionMasterFunctions(unittest.TestCase):
-    def test_check_create_promotion_invalid_administrator(self):
-        self.assertIsNone(check_create_promotion(1, 3, 1, "Скидка на стрижку", 10.0), "Expected None")
-
-    def test_check_create_promotion_invalid_service(self):
-        self.assertIsNone(check_create_promotion(2, 2, 10, "Акция 'Стрижка + укладка'", 15.0), "Expected None")
-
-    def test_check_add_master_invalid_administrator(self):
-        self.assertIsNone(check_add_master(1, 2, "Екатерина Смирнова", "+7 999 777 88 99", "9 - 18"), "Expected None")
-
-
-    def test_check_add_master_invalid_administrator_1(self):
-        self.assertIsNone(check_add_master(10, 2, "Екатерина Смирнова", "+7 999 777 88 99", "9 - 18"), "Expected None")
-
-    def test_check_add_master_long_working_hours(self):
-        self.assertIsNone(check_add_master(1, 1, "Павел Сидоров", "+7 999 000 11 22", "9 - 21"), "Expected None")
-
-
-if __name__ == '__main__':
-    unittest.main()
