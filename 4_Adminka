@@ -1,0 +1,334 @@
+from dataclasses import dataclass
+import xml.etree.ElementTree as ET
+import os
+import xml.dom.minidom as minidom
+
+# Класс Мастер (имя, номер телефона, филиал в котором работает мастер, время работы)
+@dataclass
+class Master:
+    master_id: int
+    full_name: str
+    phone: str
+    branch_id: int
+    time_job: str
+
+# Класс Администратор (имя, номер телефона, филиал в котором работает админ, время работы)
+@dataclass
+class Administrator:
+    administrator_id: int
+    full_name: str
+    phone: str
+    branch_id: int
+    time_job: str
+
+# Класс Услуга (наименование, цена услуги)
+@dataclass
+class Service:
+    service_id: int
+    name: str
+    price: int
+
+# Класс Филиал (адрес)
+@dataclass(frozen=True)
+class Branch:
+    branch_id: int
+    address: str
+
+# Класс Акция (название, скидка в процентах, id услуги на которую применяется скидка, id администратора создавшего акцию))
+@dataclass(frozen=True)
+class Promotion:
+    promotion_id: int
+    name: str
+    discount: int
+    service_id: int
+    administrator_id: int
+
+#Создание файла
+
+file_path = 'data.xml'
+
+if not os.path.exists(file_path):
+    # Создание структуры XML файла, если он не существует
+    root = ET.Element('data')
+
+
+    administrators = ET.SubElement(root, 'administrators')
+    masters = ET.SubElement(root, 'masters')
+    branches = ET.SubElement(root, 'branches')
+    services = ET.SubElement(root, 'services')
+    promotions = ET.SubElement(root, 'promotions')
+
+    clients = ET.SubElement(root, 'clients')
+    reviews = ET.SubElement(root, 'reviews')
+    sessions = ET.SubElement(root, 'sessions')
+    purchases = ET.SubElement(root, 'purchases')
+    providers = ET.SubElement(root, 'providers')
+    products = ET.SubElement(root, 'products')
+
+    tree = ET.ElementTree(root)
+    tree.write(file_path)
+    print("Файл 'data.xml' успешно создан.")
+else:
+    print("Файл 'data.xml' уже существует.")
+
+
+
+
+# Загрузка данных из XML файла
+tree = ET.parse('data.xml')
+root = tree.getroot()
+
+
+
+class CheckPromotionService:
+    @staticmethod
+    def check_create_promotion(branch_id, administrator_id, service_id):
+        chosen_administrator = next(
+            (administrator for administrator in administrators if administrator.administrator_id == administrator_id), None)
+
+        if not chosen_administrator:
+            print("Выбранный администратор не найден.")
+            return False
+
+        if chosen_administrator.branch_id != branch_id:
+            print("Администратор не работает в выбранном филиале.")
+            return False
+
+        chosen_service = next((service for service in services if service.service_id == service_id), None)
+
+        if not chosen_service:
+            print("Выбранная услуга не найдена.")
+            return False
+
+        return True
+
+
+class CheckMasterService:
+    @staticmethod
+    def check_add_master(administrator_id, branch_id, time_job):
+        chosen_administrator = next(
+            (administrator for administrator in administrators if administrator.administrator_id == administrator_id), None)
+
+        if not chosen_administrator:
+            print("Выбранный администратор не найден.")
+            return False
+
+        if chosen_administrator.branch_id != branch_id:
+            print("Администратор не работает в выбранном филиале.")
+            return False
+
+        start, end = map(int, time_job.split(" - "))
+
+        if end - start > 6:
+            print("Рабочий день мастера превышает 6 часов.")
+            print(f"Максимальное допустимое время работы: 6 часов. Рабочий день мастера: {end - start} часов.")
+            return False
+
+        return True
+
+
+class XMLRepository:
+    def __init__(self, file_path):
+        self.file_path = file_path
+        self.data = ET.parse(file_path)
+        self.root = self.data.getroot()
+
+
+    def add_administrator(self, administrator):
+
+        administrators = self.root.find('administrators')
+
+        new_administrator = ET.SubElement(administrators, 'administrator')
+        ET.SubElement(new_administrator, 'administrator_id').text = str(administrator.administrator_id)
+        ET.SubElement(new_administrator, 'full_name').text = administrator.full_name
+        ET.SubElement(new_administrator, 'phone').text = administrator.phone
+        ET.SubElement(new_administrator, 'branch_id').text = str(administrator.branch_id)
+        ET.SubElement(new_administrator, 'time_job').text = administrator.time_job
+
+        self.indent(self.data.getroot())
+        self.data.write(self.file_path)
+
+        print("Администратор успешно добавлен.")
+
+    def get_administrators(self):
+        administrators = []
+        for administrator_elem in self.root.findall('administrators/administrator'):
+            administrator = Administrator(
+                int(administrator_elem.find('administrator_id').text),
+                administrator_elem.find('full_name').text,
+                administrator_elem.find('phone').text,
+                int(administrator_elem.find('branch_id').text),
+                administrator_elem.find('time_job').text
+            )
+            administrators.append(administrator)
+        return administrators
+
+    def add_master(self, master):
+        if (CheckMasterService.check_add_master(administrator_id=1, branch_id=master.branch_id, time_job=master.time_job)):
+            masters = self.root.find('masters')
+
+            new_master = ET.SubElement(masters, 'master')
+            ET.SubElement(new_master, 'master_id').text = str(master.master_id)
+            ET.SubElement(new_master, 'full_name').text = master.full_name
+            ET.SubElement(new_master, 'phone').text = master.phone
+            ET.SubElement(new_master, 'branch_id').text = str(master.branch_id)
+            ET.SubElement(new_master, 'time_job').text = master.time_job
+
+            self.indent(self.data.getroot())
+            self.data.write(self.file_path)
+
+            print("Мастер успешно добавлен.")
+        else:
+            print("Ошибка ввода данных")
+
+    def get_masters(self):
+        masters = []
+        for master_elem in self.root.findall('masters/master'):
+            master = Master(
+                int(master_elem.find('master_id').text),
+                master_elem.find('full_name').text,
+                master_elem.find('phone').text,
+                int(master_elem.find('branch_id').text),
+                master_elem.find('time_job').text
+            )
+            masters.append(master)
+        return masters
+
+    def add_branch(self, branch):
+        branches = self.root.find('branches')
+
+        new_branch = ET.SubElement(branches, 'branch')
+        ET.SubElement(new_branch, 'branch_id').text = str(branch.branch_id)
+        ET.SubElement(new_branch, 'address').text = branch.address
+
+        self.indent(self.data.getroot())
+        self.data.write(self.file_path)
+
+        print("Филиал успешно добавлен.")
+
+    def get_branches(self):
+        branches = []
+        for branch_elem in self.root.findall('branches/branch'):
+            branch = Branch(
+                int(branch_elem.find('branch_id').text),
+                branch_elem.find('address').text
+            )
+            branches.append(branch)
+        return branches
+
+
+    def add_service(self, service):
+        services = self.root.find('services')
+
+        new_service = ET.SubElement(services, 'service')
+        ET.SubElement(new_service, 'service_id').text = str(service.service_id)
+        ET.SubElement(new_service, 'name').text = service.name
+        ET.SubElement(new_service, 'price').text = str(service.price)
+
+        self.indent(self.data.getroot())
+        self.data.write(self.file_path)
+
+        print("Услуга успешно добавлена.")
+
+    def get_services(self):
+        services = []
+        for service_elem in self.root.findall('services/service'):
+            service = Service(
+                int(service_elem.find('service_id').text),
+                service_elem.find('name').text,
+                int(service_elem.find('price').text)
+            )
+            services.append(service)
+        return services
+
+
+    def add_promotion(self, promotion):
+        if (CheckPromotionService.check_create_promotion(branch_id=1, administrator_id=promotion.administrator_id, service_id=promotion.service_id)):
+            promotions = self.root.find('promotions')
+
+            new_promotion = ET.SubElement(promotions, 'promotion')
+            ET.SubElement(new_promotion, 'promotion_id').text = str(promotion.promotion_id)
+            ET.SubElement(new_promotion, 'name').text = promotion.name
+            ET.SubElement(new_promotion, 'discount').text = str(promotion.discount)
+            ET.SubElement(new_promotion, 'service_id').text = str(promotion.service_id)
+            ET.SubElement(new_promotion, 'administrator_id').text = str(promotion.administrator_id)
+
+            self.indent(self.data.getroot())
+            self.data.write(self.file_path)
+
+            print("Акция успешно добавлена.")
+        else:
+            print("Ошибка ввода данных")
+
+    def get_promotions(self):
+        promotions = []
+        for promotion_elem in self.root.findall('promotions/promotion'):
+            promotion = Promotion(
+                int(promotion_elem.find('promotion_id').text),
+                promotion_elem.find('name').text,
+                int(promotion_elem.find('discount').text),
+                int(promotion_elem.find('service_id').text),
+                int(promotion_elem.find('administrator_id').text)
+            )
+            promotions.append(promotion)
+        return promotions
+
+
+
+    def indent(self, elem, level=0):
+        indent = "\n" + level * "    "
+        if len(elem):
+            if not elem.text or not elem.text.strip():
+                elem.text = indent + "    "
+            if not elem.tail or not elem.tail.strip():
+                elem.tail = indent
+            for child in elem:
+                self.indent(child, level + 1)
+            if not elem.tail or not elem.tail.strip():
+                elem.tail = indent
+        else:
+            if level and (not elem.tail or not elem.tail.strip()):
+                elem.tail = indent
+
+# Инициализация репозитория
+repository = XMLRepository('data.xml')
+
+administrator = Administrator(administrator_id=1, full_name="Иванов Иван", phone="123-456-789", branch_id=1, time_job="9-16")
+repository.add_administrator(administrator)
+
+administrators = repository.get_administrators()
+for administrator in administrators:
+    print(administrator)
+
+
+master = Master(master_id=1, full_name="Петров Петр", phone="987-654-321", branch_id=1, time_job="9 - 15")
+repository.add_master(master)
+
+masters = repository.get_masters()
+for master in masters:
+    print(master)
+
+
+
+branch = Branch(branch_id=1, address="ул. Ленина, 5")
+repository.add_branch(branch)
+
+branches = repository.get_branches()
+for branch in branches:
+    print(branch)
+
+
+service = Service(service_id=1, name="Стрижка", price=500)
+repository.add_service(service)
+
+services = repository.get_services()
+for service in services:
+    print(service)
+
+
+promotion = Promotion(promotion_id=1, name="Скидка на стрижку", discount=10, service_id=1, administrator_id=1)
+repository.add_promotion(promotion)
+
+promotions = repository.get_promotions()
+for promotion in promotions:
+    print(promotion)
