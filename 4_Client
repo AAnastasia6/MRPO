@@ -1,0 +1,366 @@
+from dataclasses import dataclass
+import xml.etree.ElementTree as ET
+import os
+
+
+# Определение классов данных
+@dataclass
+class Client:
+    client_id: int
+    full_name: str
+    address: str
+    phone: str
+
+@dataclass
+class Master:
+    master_id: int
+    full_name: str
+    phone: str
+    branch_id: int
+    time_job: str
+
+@dataclass
+class Service:
+    service_id: int
+    name: str
+    price: int
+
+@dataclass(frozen=True)
+class Branch:
+    branch_id: int
+    address: str
+
+
+@dataclass
+class Review:
+    review_id: int
+    content: str
+    rating: int
+    client_id: int
+    session_id: int
+
+@dataclass(frozen=True)
+class Session:
+    session_id: int
+    date: str
+    service_id: int
+    client_id: int
+    master_id: int
+
+
+#Создание файла
+
+file_path = 'data.xml'
+
+if not os.path.exists(file_path):
+    # Создание структуры XML файла, если он не существует
+    root = ET.Element('data')
+
+    clients = ET.SubElement(root, 'clients')
+    masters = ET.SubElement(root, 'masters')
+    branches = ET.SubElement(root, 'branches')
+    services = ET.SubElement(root, 'services')
+    reviews = ET.SubElement(root, 'reviews')
+    sessions = ET.SubElement(root, 'sessions')
+
+    promotions = ET.SubElement(root, 'promotions')
+    administrators = ET.SubElement(root, 'administrators')
+    purchases = ET.SubElement(root, 'purchases')
+    providers = ET.SubElement(root, 'providers')
+    products = ET.SubElement(root, 'products')
+
+    tree = ET.ElementTree(root)
+    tree.write(file_path)
+    print("Файл 'data.xml' успешно создан.")
+else:
+    print("Файл 'data.xml' уже существует.")
+
+
+
+
+# Загрузка данных из XML файла
+tree = ET.parse('data.xml')
+root = tree.getroot()
+
+
+class BookingService:
+    @staticmethod
+    def check_booking(branch_id, master_id, date):
+        chosen_master = next((master for master in masters if master.master_id == master_id), None)
+        chosen_branch = next((branch for branch in branches if branch.branch_id == branch_id), None)
+
+        if not chosen_master or not chosen_branch:
+            print("Неверно выбран филиал или мастер.")
+            return False
+
+        if chosen_master.branch_id != branch_id:
+            print("Мастер не работает в выбранном филиале.")
+            return False
+
+        # Разбиваем строку time_job на начало и конец интервала
+        start_time, end_time = map(int, chosen_master.time_job.split(' - '))
+        # Получаем часы из строки date
+        hour = int(date.split()[1].split(':')[0])
+        # Проверяем, что часы находятся в указанном интервале
+        if not (start_time <= hour <= end_time):
+            print("Выбранное время не соответствует рабочим часам мастера.")
+            return False
+
+        sessions = repository.get_sessions()
+        if any(session.date == date for session in sessions if session.master_id == master_id):
+            print("Выбранное время уже занято.")
+            return False
+
+        return True
+
+class ReviewService:
+    @staticmethod
+    def leave_review(session_id):
+        if not any(session.session_id == session_id for session in sessions):
+            print("Неверный идентификатор записи клиента на услугу.")
+            return False
+
+        return True
+
+
+
+class XMLRepository:
+    def __init__(self, file_path):
+        self.file_path = file_path
+        self.data = ET.parse(file_path)
+        self.root = self.data.getroot()
+
+    def add_client(self, client):
+        clients = self.root.find('clients')
+
+        new_client = ET.SubElement(clients, 'client')
+        ET.SubElement(new_client, 'client_id').text = str(client.client_id)
+        ET.SubElement(new_client, 'full_name').text = client.full_name
+        ET.SubElement(new_client, 'address').text = client.address
+        ET.SubElement(new_client, 'phone').text = client.phone
+
+        self.indent(self.data.getroot())
+        self.data.write(self.file_path)
+
+        print("Клиент успешно добавлен.")
+
+    def get_clients(self):
+        clients = []
+        for client_elem in self.root.findall('clients/client'):
+            client = Client(
+                int(client_elem.find('client_id').text),
+                client_elem.find('full_name').text,
+                client_elem.find('address').text,
+                client_elem.find('phone').text
+            )
+            clients.append(client)
+        return clients
+
+    def add_master(self, master):
+        masters = self.root.find('masters')
+
+        new_master = ET.SubElement(masters, 'master')
+        ET.SubElement(new_master, 'master_id').text = str(master.master_id)
+        ET.SubElement(new_master, 'full_name').text = master.full_name
+        ET.SubElement(new_master, 'phone').text = master.phone
+        ET.SubElement(new_master, 'branch_id').text = str(master.branch_id)
+        ET.SubElement(new_master, 'time_job').text = master.time_job
+
+        self.indent(self.data.getroot())
+        self.data.write(self.file_path)
+
+        print("Мастер успешно добавлен.")
+
+    def get_masters(self):
+        masters = []
+        for master_elem in self.root.findall('masters/master'):
+            master = Master(
+                int(master_elem.find('master_id').text),
+                master_elem.find('full_name').text,
+                master_elem.find('phone').text,
+                int(master_elem.find('branch_id').text),
+                master_elem.find('time_job').text
+            )
+            masters.append(master)
+        return masters
+
+    def add_branch(self, branch):
+        branches = self.root.find('branches')
+
+        new_branch = ET.SubElement(branches, 'branch')
+        ET.SubElement(new_branch, 'branch_id').text = str(branch.branch_id)
+        ET.SubElement(new_branch, 'address').text = branch.address
+
+        self.indent(self.data.getroot())
+        self.data.write(self.file_path)
+
+        print("Филиал успешно добавлен.")
+
+    def get_branches(self):
+        branches = []
+        for branch_elem in self.root.findall('branches/branch'):
+            branch = Branch(
+                int(branch_elem.find('branch_id').text),
+                branch_elem.find('address').text
+            )
+            branches.append(branch)
+        return branches
+
+
+    def add_service(self, service):
+        services = self.root.find('services')
+
+        new_service = ET.SubElement(services, 'service')
+        ET.SubElement(new_service, 'service_id').text = str(service.service_id)
+        ET.SubElement(new_service, 'name').text = service.name
+        ET.SubElement(new_service, 'price').text = str(service.price)
+
+        self.indent(self.data.getroot())
+        self.data.write(self.file_path)
+
+        print("Услуга успешно добавлена.")
+
+    def get_services(self):
+        services = []
+        for service_elem in self.root.findall('services/service'):
+            service = Service(
+                int(service_elem.find('service_id').text),
+                service_elem.find('name').text,
+                int(service_elem.find('price').text)
+            )
+            services.append(service)
+        return services
+
+
+
+    def add_session(self, session):
+        if (BookingService.check_booking(branch_id=1, master_id=session.master_id, date=session.date)):
+            sessions = self.root.find('sessions')
+
+            new_session = ET.SubElement(sessions, 'session')
+            ET.SubElement(new_session, 'session_id').text = str(session.session_id)
+            ET.SubElement(new_session, 'date').text = session.date
+            ET.SubElement(new_session, 'service_id').text = str(session.service_id)
+            ET.SubElement(new_session, 'client_id').text = str(session.client_id)
+            ET.SubElement(new_session, 'master_id').text = str(session.master_id)
+
+            self.indent(self.data.getroot())
+            self.data.write(self.file_path)
+
+            print("Запись на приём успешно добавлена.")
+        else:
+            print("Ошибка ввода данных")
+
+    def get_sessions(self):
+        sessions = []
+        for session_elem in self.root.findall('sessions/session'):
+            session = Session(
+                int(session_elem.find('session_id').text),
+                session_elem.find('date').text,
+                int(session_elem.find('service_id').text),
+                int(session_elem.find('client_id').text),
+                int(session_elem.find('master_id').text)
+            )
+            sessions.append(session)
+        return sessions
+
+
+    def add_review(self, review):
+        if (ReviewService.leave_review(session_id=review.session_id)):
+            reviews = self.root.find('reviews')
+
+            new_review = ET.SubElement(reviews, 'review')
+            ET.SubElement(new_review, 'review_id').text = str(review.review_id)
+            ET.SubElement(new_review, 'content').text = review.content
+            ET.SubElement(new_review, 'rating').text = str(review.rating)
+            ET.SubElement(new_review, 'client_id').text = str(review.client_id)
+            ET.SubElement(new_review, 'session_id').text = str(review.session_id)
+
+            self.indent(self.data.getroot())
+            self.data.write(self.file_path)
+
+            print("Отзыв успешно добавлен.")
+        else:
+            print("Ошибка ввода данных. Отзыв не сохранён.")
+
+    def get_reviews(self):
+        reviews = []
+        for review_elem in self.root.findall('reviews/review'):
+            review = Review(
+                int(review_elem.find('review_id').text),
+                review_elem.find('content').text,
+                int(review_elem.find('rating').text),
+                int(review_elem.find('client_id').text),
+                int(review_elem.find('session_id').text)
+            )
+            reviews.append(review)
+        return reviews
+
+
+    def indent(self, elem, level=0):
+        indent = "\n" + level * "    "
+        if len(elem):
+            if not elem.text or not elem.text.strip():
+                elem.text = indent + "    "
+            if not elem.tail or not elem.tail.strip():
+                elem.tail = indent
+            for child in elem:
+                self.indent(child, level + 1)
+            if not elem.tail or not elem.tail.strip():
+                elem.tail = indent
+        else:
+            if level and (not elem.tail or not elem.tail.strip()):
+                elem.tail = indent
+
+# Инициализация репозитория
+repository = XMLRepository('data.xml')
+
+
+master = Master(master_id=1, full_name="Петров Петр", phone="987-654-321", branch_id=1, time_job="9 - 18")
+repository.add_master(master)
+
+masters = repository.get_masters()
+for master in masters:
+    print(master)
+
+
+# Пример добавления клиента и чтения из репозитория
+client = Client(client_id=1, full_name="Иванов Иван", address="ул. Пушкина, д.1", phone="123-456-789")
+repository.add_client(client)
+
+# Чтение всех клиентов из репозитория
+clients = repository.get_clients()
+for client in clients:
+    print(client)
+
+
+branch = Branch(branch_id=1, address="ул. Ленина, 5")
+repository.add_branch(branch)
+
+branches = repository.get_branches()
+for branch in branches:
+    print(branch)
+
+
+service = Service(service_id=1, name="Стрижка", price=500)
+repository.add_service(service)
+
+services = repository.get_services()
+for service in services:
+    print(service)
+
+
+session = Session(session_id=2, date="2024-04-10 14:00", service_id=1, client_id=1, master_id=1)
+repository.add_session(session)
+
+sessions = repository.get_sessions()
+for session in sessions:
+    print(session)
+
+
+review = Review(review_id=1, content="Отличный сервис!", rating=5, client_id=1, session_id=2)
+repository.add_review(review)
+
+reviews = repository.get_reviews()
+for review in reviews:
+    print(review)
