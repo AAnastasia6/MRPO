@@ -134,7 +134,7 @@ class ServiceLayer:
             repository.add_entity(objectt, 'administrator', id)
 
         if isinstance(objectt, Master):
-            objectt.branch_id=repository.get_branch_by_administrator_master(admin_id)
+            objectt.branch_id=repository.get_branch_by_administrator_master('administrator', admin_id)
 
             id=repository.get_id_new('master')
 
@@ -174,8 +174,8 @@ class ServiceLayer:
 
     @staticmethod
     def update_master_time_job(admin_id, master_id, new_time_job):
-        branch_master = repository.get_branch_by_administrator_master(master_id)
-        branch_admin = repository.get_branch_by_administrator_master(admin_id)
+        branch_master = repository.get_branch_by_administrator_master('master', master_id)
+        branch_admin = repository.get_branch_by_administrator_master('administrator', admin_id)
         if (CheckMasterService.check_update_master(branch_master, branch_admin, new_time_job)):
             repository.update_master_time_job(master_id,new_time_job)
 
@@ -232,8 +232,8 @@ class XMLRepository:
 
 
 
-    def get_branch_by_administrator_master(self, entiti_id):
-        for admin in root.findall('.//administrator'):
+    def get_branch_by_administrator_master(self, entit_name, entiti_id):
+        for admin in root.findall(f'.//{entit_name}'):
             if admin.attrib.get('id') == str(entiti_id):
                 result = admin
 
@@ -305,8 +305,8 @@ class XMLRepository:
 # Инициализация репозитория
 repository = XMLRepository('data.xml')
 
-master = Master(full_name="Petrov Petr", phone="987-654-321", branch_id=None, time_job="9 - 15")
-ServiceLayer.add_object(objectt=master, admin_id = 2)
+# master = Master(full_name="Petrov Petr", phone="987-654-321", branch_id=None, time_job="9 - 15")
+# ServiceLayer.add_object(objectt=master, admin_id = 2)
 
 # administrator = Administrator(full_name="Ivanov Ivan", phone="123-456-789", branch_id=1, time_job="9-16")
 # ServiceLayer.add_object(administrator)
