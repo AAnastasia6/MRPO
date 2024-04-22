@@ -6,14 +6,12 @@ import os
 # Определение классов данных
 @dataclass
 class Client:
-    client_id: int
     full_name: str
     address: str
     phone: str
 
 @dataclass
 class Master:
-    master_id: int
     full_name: str
     phone: str
     branch_id: int
@@ -21,31 +19,28 @@ class Master:
 
 @dataclass
 class Service:
-    service_id: int
     name: str
     price: int
 
 @dataclass(frozen=True)
 class Branch:
-    branch_id: int
     address: str
 
 
 @dataclass
 class Review:
-    review_id: int
     content: str
     rating: int
     client_id: int
-    session_id: int
+    master_id: int
 
 @dataclass(frozen=True)
 class Session:
-    session_id: int
     date: str
     service_id: int
     client_id: int
     master_id: int
+    branch_id:int
 
 
 #Создание файла
@@ -58,7 +53,7 @@ if not os.path.exists(file_path):
 
     clients = ET.SubElement(root, 'clients')
     masters = ET.SubElement(root, 'masters')
-    branches = ET.SubElement(root, 'branches')
+    branchs = ET.SubElement(root, 'branchs')
     services = ET.SubElement(root, 'services')
     reviews = ET.SubElement(root, 'reviews')
     sessions = ET.SubElement(root, 'sessions')
@@ -83,44 +78,118 @@ tree = ET.parse('data.xml')
 root = tree.getroot()
 
 
-class BookingService:
+class SessionService:
     @staticmethod
-    def check_booking(branch_id, master_id, date):
-        chosen_master = next((master for master in masters if master.master_id == master_id), None)
-        chosen_branch = next((branch for branch in branches if branch.branch_id == branch_id), None)
+    def check_booking(session, master_time_job, branch_master, session_is_empty):
 
-        if not chosen_master or not chosen_branch:
-            print("Неверно выбран филиал или мастер.")
+        if session_is_empty is not None:
+            print("Данное врея записи занято")
             return False
 
-        if chosen_master.branch_id != branch_id:
-            print("Мастер не работает в выбранном филиале.")
+        if session.branch_id != branch_master:
+            print("Мастер не работает в выбранном филиале")
             return False
 
         # Разбиваем строку time_job на начало и конец интервала
-        start_time, end_time = map(int, chosen_master.time_job.split(' - '))
+        start_time, end_time = map(int, master_time_job.split(' - '))
         # Получаем часы из строки date
-        hour = int(date.split()[1].split(':')[0])
+        hour = int(session.date.split()[1].split(':')[0])
         # Проверяем, что часы находятся в указанном интервале
         if not (start_time <= hour <= end_time):
             print("Выбранное время не соответствует рабочим часам мастера.")
-            return False
-
-        sessions = repository.get_sessions()
-        if any(session.date == date for session in sessions if session.master_id == master_id):
-            print("Выбранное время уже занято.")
             return False
 
         return True
 
 class ReviewService:
     @staticmethod
-    def leave_review(session_id):
-        if not any(session.session_id == session_id for session in sessions):
-            print("Неверный идентификатор записи клиента на услугу.")
+    def leave_review(review, session):
+        if session is None:
+            print("Запись или отзыв не найдены")
+            return False
+
+        if isinstance(review.rating, int):  # Проверяем, что review является числом
+            review_raiting = int(review.rating)  # Преобразуем review в целое число
+            if 1 <= review_raiting <= 5:
+                return True
+            else:
+                print("Неверный формат оценки")
+                return False
+        else:
+            print("Неверный формат оценки")
             return False
 
         return True
+
+    @staticmethod
+    def update_review(rating, review):
+        if review is None:
+            print("Запись или отзыв не найдены")
+            return False
+
+        if isinstance(rating, int):  # Проверяем, что review является числом
+            review_raiting = int(rating)  # Преобразуем review в целое число
+            if 1 <= review_raiting <= 5:
+                return True
+            else:
+                print("Неверный формат оценки")
+                return False
+        else:
+            print("Неверный формат оценки")
+            return False
+
+        return True
+
+class ServiceLayer:
+    @staticmethod
+    def add_object(objectt):
+
+        if isinstance(objectt, Client):
+            id = repository.get_id_new('client')
+            repository.add_entity(objectt, 'client', id)
+
+        if isinstance(objectt, Review):
+            id = repository.get_id_new('review')
+            session = repository.get_session_by_client_master(objectt)
+            if ReviewService.leave_review(objectt, session):
+                repository.add_entity(objectt, 'review', id)
+            else:
+                print("Ошибка ввода данных")
+
+        if isinstance(objectt, Service):
+            id=repository.get_id_new('service')
+            repository.add_entity(objectt, 'service', id)
+
+        if isinstance(objectt, Branch):
+            id=repository.get_id_new('branch')
+            repository.add_entity(objectt, 'branch', id)
+
+        if isinstance(objectt, Session):
+            id = repository.get_id_new('session')
+            master_time_job = repository.get_master_time_job(objectt.master_id)
+            branch_master = repository.get_branch_by_administrator_master('master', objectt.master_id)
+            session_is_empty = repository.check_session_by_date(objectt.date)
+            if SessionService.check_booking(objectt, master_time_job, branch_master, session_is_empty):
+                repository.add_entity(objectt, 'session', id)
+            else:
+                print("Ошибка ввода данных")
+
+    @staticmethod
+    def remove_object(object_name, id):
+        repository.remove_entity(object_name, id)
+
+    @staticmethod
+    def get_all_object(object_name):
+        print(repository.get_all_entities(object_name))
+
+    @staticmethod
+    def update_rewiew(review_id, new_raiting=None, new_content=None):
+        review= repository.get_entiti_by_id('review', review_id)
+        if ReviewService.update_review(new_raiting, review):
+            repository.update_rewiew_by_id(review_id, new_raiting, new_content)
+
+
+
 
 
 
@@ -130,172 +199,117 @@ class XMLRepository:
         self.data = ET.parse(file_path)
         self.root = self.data.getroot()
 
-    def add_client(self, client):
-        clients = self.root.find('clients')
+    def get_id_new(self, entity_name):
+        # Нахождение максимального id для элементов
+        max_id = 0
+        for entiti in self.root.findall(f'.//{entity_name}'):
+            entiti_id = int(entiti.attrib.get('id', 0))
+            max_id = max(max_id, entiti_id)
 
-        new_client = ET.SubElement(clients, 'client')
-        ET.SubElement(new_client, 'client_id').text = str(client.client_id)
-        ET.SubElement(new_client, 'full_name').text = client.full_name
-        ET.SubElement(new_client, 'address').text = client.address
-        ET.SubElement(new_client, 'phone').text = client.phone
+        print(f"Максимальный id для элементов: {max_id}")
+        return max_id+1
 
-        self.indent(self.data.getroot())
-        self.data.write(self.file_path)
+    def add_entity(self, entity, entity_type, id):
+        parent_element = self.root.find(entity_type + "s")
 
-        print("Клиент успешно добавлен.")
+        new_entity = ET.SubElement(parent_element, entity_type)
+        new_entity.set('id', str(id))
 
-    def get_clients(self):
-        clients = []
-        for client_elem in self.root.findall('clients/client'):
-            client = Client(
-                int(client_elem.find('client_id').text),
-                client_elem.find('full_name').text,
-                client_elem.find('address').text,
-                client_elem.find('phone').text
-            )
-            clients.append(client)
-        return clients
+        for prop, value in vars(entity).items():
+            if not prop.startswith("_"):
+                ET.SubElement(new_entity, prop).text = str(value)
 
-    def add_master(self, master):
-        masters = self.root.find('masters')
+        self.indent(self.data.getroot())  # Форматирование XML
+        self.data.write(self.file_path)  # Сохранение изменений в файл
 
-        new_master = ET.SubElement(masters, 'master')
-        ET.SubElement(new_master, 'master_id').text = str(master.master_id)
-        ET.SubElement(new_master, 'full_name').text = master.full_name
-        ET.SubElement(new_master, 'phone').text = master.phone
-        ET.SubElement(new_master, 'branch_id').text = str(master.branch_id)
-        ET.SubElement(new_master, 'time_job').text = master.time_job
+        print(f"{entity_type.capitalize()} успешно добавлен.")
 
-        self.indent(self.data.getroot())
-        self.data.write(self.file_path)
+    def remove_entity(self, entity_type, id):
+        parent_element = self.root.find(entity_type + "s")
 
-        print("Мастер успешно добавлен.")
+        for element in parent_element.findall(entity_type):
+            if element.get("id") == str(id):
+                parent_element.remove(element)
+                self.indent(self.data.getroot())
+                self.data.write(self.file_path)
+                print(f"{entity_type.capitalize()} с id {id} успешно удален.")
+                return
 
-    def get_masters(self):
-        masters = []
-        for master_elem in self.root.findall('masters/master'):
-            master = Master(
-                int(master_elem.find('master_id').text),
-                master_elem.find('full_name').text,
-                master_elem.find('phone').text,
-                int(master_elem.find('branch_id').text),
-                master_elem.find('time_job').text
-            )
-            masters.append(master)
-        return masters
+        print(f"{entity_type.capitalize()} с id {id} не найден.")
 
-    def add_branch(self, branch):
-        branches = self.root.find('branches')
+    def get_entiti_by_id(self, entiti_name, id):
+        for entiti in root.findall(f'.//{entiti_name}'):
+            if entiti.attrib.get('id') == str(id):
+                return entiti
 
-        new_branch = ET.SubElement(branches, 'branch')
-        ET.SubElement(new_branch, 'branch_id').text = str(branch.branch_id)
-        ET.SubElement(new_branch, 'address').text = branch.address
+    def get_branch_by_administrator_master(self, entit_name, entiti_id):
+        for entiti in root.findall(f'.//{entit_name}'):
+            if entiti.attrib.get('id') == str(entiti_id):
+                result = entiti
 
-        self.indent(self.data.getroot())
-        self.data.write(self.file_path)
-
-        print("Филиал успешно добавлен.")
-
-    def get_branches(self):
-        branches = []
-        for branch_elem in self.root.findall('branches/branch'):
-            branch = Branch(
-                int(branch_elem.find('branch_id').text),
-                branch_elem.find('address').text
-            )
-            branches.append(branch)
-        return branches
-
-
-    def add_service(self, service):
-        services = self.root.find('services')
-
-        new_service = ET.SubElement(services, 'service')
-        ET.SubElement(new_service, 'service_id').text = str(service.service_id)
-        ET.SubElement(new_service, 'name').text = service.name
-        ET.SubElement(new_service, 'price').text = str(service.price)
-
-        self.indent(self.data.getroot())
-        self.data.write(self.file_path)
-
-        print("Услуга успешно добавлена.")
-
-    def get_services(self):
-        services = []
-        for service_elem in self.root.findall('services/service'):
-            service = Service(
-                int(service_elem.find('service_id').text),
-                service_elem.find('name').text,
-                int(service_elem.find('price').text)
-            )
-            services.append(service)
-        return services
-
-
-
-    def add_session(self, session):
-        if (BookingService.check_booking(branch_id=1, master_id=session.master_id, date=session.date)):
-            sessions = self.root.find('sessions')
-
-            new_session = ET.SubElement(sessions, 'session')
-            ET.SubElement(new_session, 'session_id').text = str(session.session_id)
-            ET.SubElement(new_session, 'date').text = session.date
-            ET.SubElement(new_session, 'service_id').text = str(session.service_id)
-            ET.SubElement(new_session, 'client_id').text = str(session.client_id)
-            ET.SubElement(new_session, 'master_id').text = str(session.master_id)
-
-            self.indent(self.data.getroot())
-            self.data.write(self.file_path)
-
-            print("Запись на приём успешно добавлена.")
+        if result is not None:
+            branch_id = int(result.find('branch_id').text)
+            print(f"Branch ID: {branch_id}")
+            return branch_id
         else:
-            print("Ошибка ввода данных")
+            print("Администратор не найден.")
 
-    def get_sessions(self):
-        sessions = []
-        for session_elem in self.root.findall('sessions/session'):
-            session = Session(
-                int(session_elem.find('session_id').text),
-                session_elem.find('date').text,
-                int(session_elem.find('service_id').text),
-                int(session_elem.find('client_id').text),
-                int(session_elem.find('master_id').text)
-            )
-            sessions.append(session)
-        return sessions
+    def get_all_entities(self, entity_type):
+        parent_element = self.root.find(entity_type + "s")
+        entities = []
 
+        for element in parent_element.findall(entity_type):
+            entity_data = {}
+            entity_data["id"] = element.get("id")
+            for child in element:
+                entity_data[child.tag] = child.text
+            entities.append(entity_data)
 
-    def add_review(self, review):
-        if (ReviewService.leave_review(session_id=review.session_id)):
-            reviews = self.root.find('reviews')
+        return entities
 
-            new_review = ET.SubElement(reviews, 'review')
-            ET.SubElement(new_review, 'review_id').text = str(review.review_id)
-            ET.SubElement(new_review, 'content').text = review.content
-            ET.SubElement(new_review, 'rating').text = str(review.rating)
-            ET.SubElement(new_review, 'client_id').text = str(review.client_id)
-            ET.SubElement(new_review, 'session_id').text = str(review.session_id)
+    def get_master_time_job(self, master_id):
+        for master in root.findall('.//master'):
+            if master.attrib.get('id') == str(master_id):
+                result = master
 
-            self.indent(self.data.getroot())
-            self.data.write(self.file_path)
-
-            print("Отзыв успешно добавлен.")
+        if result is not None:
+            time_job = result.find('time_job').text
+            print(f"time_job: {time_job}")
+            return time_job
         else:
-            print("Ошибка ввода данных. Отзыв не сохранён.")
+            print("Мастер не найден.")
 
-    def get_reviews(self):
-        reviews = []
-        for review_elem in self.root.findall('reviews/review'):
-            review = Review(
-                int(review_elem.find('review_id').text),
-                review_elem.find('content').text,
-                int(review_elem.find('rating').text),
-                int(review_elem.find('client_id').text),
-                int(review_elem.find('session_id').text)
-            )
-            reviews.append(review)
-        return reviews
+    def get_session_by_client_master(self, object):
+        for session in root.findall('.//session'):
+            client_element = session.find('client_id')
+            master_element = session.find('master_id')
+            if client_element.text == str(object.client_id) and master_element.text == str(object.master_id):
+                return session
+        print("Сессия для указанных client_id и master_id не найдена")
 
+    def check_session_by_date(self, date_session):
+        for session in root.findall('.//session'):
+            date_element = session.find('date')
+            if date_element.text == date_session:
+                # print(date_element.text)
+                return  date_element
+            else:
+                print("Данные дата и время записи свободны")
+
+    def update_rewiew_by_id(self, review_id, new_rating=None, new_content=None):
+        review_element = self.root.find("reviews")
+        for review in review_element.findall("review"):
+            if review.get('id') == str(review_id):
+                if new_rating is not None:
+                    rating_element = review.find('rating')
+                    rating_element.text = str(new_rating)
+                if new_content is not None:
+                    content_element = review.find('content')
+                    content_element.text = new_content
+                self.indent(self.data.getroot())
+                self.data.write(self.file_path)
+                print(f"Данные успешно обновлены")
+                return
 
     def indent(self, elem, level=0):
         indent = "\n" + level * "    "
@@ -316,51 +330,34 @@ class XMLRepository:
 repository = XMLRepository('data.xml')
 
 
-master = Master(master_id=1, full_name="Петров Петр", phone="987-654-321", branch_id=1, time_job="9 - 18")
-repository.add_master(master)
-
-masters = repository.get_masters()
-for master in masters:
-    print(master)
 
 
-# Пример добавления клиента и чтения из репозитория
-client = Client(client_id=1, full_name="Иванов Иван", address="ул. Пушкина, д.1", phone="123-456-789")
-repository.add_client(client)
-
-# Чтение всех клиентов из репозитория
-clients = repository.get_clients()
-for client in clients:
-    print(client)
+# client = Client(full_name="Ivanov Ivan", address="Mira, 28", phone="123-456-789")
+# ServiceLayer.add_object(client)
 
 
-branch = Branch(branch_id=1, address="ул. Ленина, 5")
-repository.add_branch(branch)
-
-branches = repository.get_branches()
-for branch in branches:
-    print(branch)
+# service = Service(name="Strishka", price=500)
+# ServiceLayer.add_object(service)
 
 
-service = Service(service_id=1, name="Стрижка", price=500)
-repository.add_service(service)
+# branch = Branch(address="Mira, 25")
+# ServiceLayer.add_object(branch)
 
-services = repository.get_services()
-for service in services:
-    print(service)
+# session = Session(date="2024-04-10 17:00", service_id=1, client_id=1, master_id=1, branch_id=1)
+# ServiceLayer.add_object(session)
 
-
-session = Session(session_id=2, date="2024-04-10 14:00", service_id=1, client_id=1, master_id=1)
-repository.add_session(session)
-
-sessions = repository.get_sessions()
-for session in sessions:
-    print(session)
+# review = Review(content="Good service!", rating=4, client_id=1, master_id=1)
+# ServiceLayer.add_object(review)
 
 
-review = Review(review_id=1, content="Отличный сервис!", rating=5, client_id=1, session_id=2)
-repository.add_review(review)
 
-reviews = repository.get_reviews()
-for review in reviews:
-    print(review)
+
+# ServiceLayer.remove_object('branch', 1)
+
+# ServiceLayer.get_all_object("service")
+
+ServiceLayer.update_rewiew(1, 4, "Good!")
+
+
+
+
