@@ -127,6 +127,7 @@ class CheckMasterService:
         return True
 
 class ServiceLayer:
+    @staticmethod
     def add_object(objectt, admin_id=None):
         if isinstance(objectt, Administrator):
             id=repository.get_id_new('administrator')
