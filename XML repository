@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 import xml.etree.ElementTree as ET
 import os
-from lxml import etree
-import xml.dom.minidom as minidom
+
 
 # Класс Мастер (имя, номер телефона, филиал в котором работает мастер, время работы)
 @dataclass
@@ -233,9 +232,9 @@ class XMLRepository:
 
 
     def get_branch_by_administrator_master(self, entit_name, entiti_id):
-        for admin in root.findall(f'.//{entit_name}'):
-            if admin.attrib.get('id') == str(entiti_id):
-                result = admin
+        for entiti in root.findall(f'.//{entit_name}'):
+            if entiti.attrib.get('id') == str(entiti_id):
+                result = entiti
 
         if result is not None:
             branch_id = result.find('branch_id').text
