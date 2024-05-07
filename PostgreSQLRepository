@@ -1,0 +1,367 @@
+from dataclasses import dataclass
+import psycopg2
+from dataclasses import fields, asdict
+
+
+# Определение классов данных
+@dataclass
+class Client:
+    full_name: str
+    address: str
+    phone: str
+
+@dataclass
+class Master:
+    full_name: str
+    phone: str
+    branch_id: int
+    time_job: str
+
+@dataclass
+class Service:
+    name: str
+    price: int
+
+@dataclass(frozen=True)
+class Branch:
+    address: str
+
+
+@dataclass
+class Review:
+    content: str
+    rating: int
+    client_id: int
+    master_id: int
+
+@dataclass(frozen=True)
+class Session:
+    date: str
+    service_id: int
+    client_id: int
+    master_id: int
+    branch_id:int
+
+
+class SessionService:
+    @staticmethod
+    def check_booking(session, master_time_job, branch_master, session_is_empty):
+
+        if session_is_empty is not None:
+            print("Данное время записи занято")
+            return False
+
+        if session.branch_id != branch_master:
+            print("Мастер не работает в выбранном филиале")
+            return False
+
+        # Разбиваем строку time_job на начало и конец интервала
+        start_time, end_time = map(int, master_time_job.split(' - '))
+        # Получаем часы из строки date
+        hour = int(session.date.split()[1].split(':')[0])
+        # Проверяем, что часы находятся в указанном интервале
+        if not (start_time <= hour <= end_time):
+            print("Выбранное время не соответствует рабочим часам мастера.")
+            return False
+
+        return True
+
+class ReviewService:
+    @staticmethod
+    def leave_review(review, session):
+        if session is None:
+            print("Запись не найдены")
+            return False
+
+        if isinstance(review.rating, int):  # Проверяем, что review является числом
+            review_raiting = int(review.rating)  # Преобразуем review в целое число
+            if 1 <= review_raiting <= 5:
+                return True
+            else:
+                print("Неверный формат оценки")
+                return False
+        else:
+            print("Неверный формат оценки")
+            return False
+
+        return True
+
+    @staticmethod
+    def update_review(rating, review):
+        if review is None:
+            print("Отзыв не найдены")
+            return False
+
+        if isinstance(rating, int):  # Проверяем, что review является числом
+            review_raiting = int(rating)  # Преобразуем review в целое число
+            if 1 <= review_raiting <= 5:
+                return True
+            else:
+                print("Неверный формат оценки")
+                return False
+        else:
+            print("Неверный формат оценки")
+            return False
+
+        return True
+
+
+
+class ServiceLayer:
+    @staticmethod
+    def add_object(objectt):
+
+        if isinstance(objectt, Client):
+            repository.add_entity(objectt, 'client')
+
+        if isinstance(objectt, Review):
+            session = repository.get_session_by_client_master(objectt)
+            if ReviewService.leave_review(objectt, session):
+                repository.add_entity(objectt, 'review')
+            else:
+                print("Ошибка ввода данных")
+
+        if isinstance(objectt, Service):
+            repository.add_entity(objectt, 'service')
+
+        if isinstance(objectt, Branch):
+            repository.add_entity(objectt, 'branch')
+
+        if isinstance(objectt, Session):
+            master_time_job = repository.get_master_time_job(objectt.master_id)
+            branch_master = repository.get_branch_by_administrator_master('master', objectt.master_id)
+            session_is_empty = repository.check_session_by_date(objectt.date)
+            if SessionService.check_booking(objectt, master_time_job, branch_master, session_is_empty):
+                repository.add_entity(objectt, 'session')
+            else:
+                print("Ошибка ввода данных")
+
+    @staticmethod
+    def remove_object(object_name, id):
+        repository.remove_entity(object_name, id)
+
+    @staticmethod
+    def get_all_object(object_name):
+        print(repository.get_all_entities(object_name))
+
+    @staticmethod
+    def update_rewiew(review_id, new_raiting=None, new_content=None):
+        review= repository.get_entity_by_id('review', review_id)
+        if ReviewService.update_review(new_raiting, review):
+            repository.update_review_by_id(review_id, new_raiting, new_content)
+
+    @staticmethod
+    def get_all_session_by_client(id):
+        print(repository.get_all_session_by_client(id))
+        return repository.get_all_session_by_client(id)
+
+
+class PostgreSQLRepository:
+    def __init__(self):
+        self.connection = psycopg2.connect(dbname="barbershop", user="postgres", password="1234", host="localhost")  # Connect to PostgreSQL
+        self.cursor = self.connection.cursor()
+
+    def __del__(self):
+        self.connection.close()  # Close connection on object deletion
+
+    def add_entity(self, entity, entity_type):
+        table_name = entity_type.lower()  # Определяем имя таблицы, предполагая множественное число (e.g., masters, services)
+        field_names = [field.name for field in fields(entity)]  # Получаем список имён полей из dataclass
+        values = [str(getattr(entity, field_name)) for field_name in field_names]  # Получаем список значений полей из объекта
+        placeholders = ",".join(["%s"] * len(field_names))  # Создаём плейсхолдеры для SQL-запроса
+
+        # SQL-запрос для вставки данных
+        insert_query = f"""
+            INSERT INTO {table_name} ({','.join(field_names)})
+            VALUES ({placeholders});
+        """
+
+        self.cursor.execute(insert_query, values)  # Выполняем запрос с подстановкой значений
+        self.connection.commit()  # Фиксируем изменения
+
+    def get_branch_by_administrator_master(self, entity_name, entity_id):
+        table_name = entity_name.lower()  # Получаем имя таблицы
+
+        # SQL-запрос для получения ID филиала
+        select_query = f"""
+            SELECT branch_id
+            FROM {table_name}
+            WHERE id = %s;
+        """
+
+        self.cursor.execute(select_query, (entity_id,))  # Выполняем запрос с ID сущности
+        branch_id = self.cursor.fetchone()  # Получаем результат (ID филиала)
+
+        if branch_id:
+            return branch_id[0]  # Возвращаем ID филиала
+        else:
+            return None  # Если сущность не найдена, возвращаем None
+
+    def get_entity_by_id(self, entity_name, id):
+        table_name = entity_name.lower()   # Имя таблицы
+        class_name = entity_name.capitalize()  # Имя класса (предполагаем соответствие имени таблицы и класса)
+
+        # SQL-запрос для получения данных сущности
+        select_query = f"SELECT * FROM {table_name} WHERE id = %s;"
+
+        self.cursor.execute(select_query, (id,))
+        entity_data = self.cursor.fetchone()
+
+        if entity_data:
+            # Создаём словарь {имя_поля: значение}
+            field_names = [field.name for field in fields(globals()[class_name])]  # Получаем имена полей из класса
+            entity_dict = dict(zip(field_names, entity_data))
+
+            # Создаём и возвращаем объект класса
+            return globals()[class_name](**entity_dict)
+        else:
+            return None  # Если объект не найден
+
+    def get_all_entities(self, entity_type):
+        table_name = entity_type.lower()   # Имя таблицы
+
+        # SQL-запрос для получения всех данных
+        select_query = f"SELECT * FROM {table_name};"
+
+        self.cursor.execute(select_query)
+        all_data = self.cursor.fetchall()
+
+        # Преобразуем данные в список словарей
+        result = []
+        for row in all_data:
+            row_dict = dict(zip([column[0] for column in self.cursor.description], row))
+            result.append(row_dict)
+
+        return result
+
+    def get_master_time_job(self, master_id):
+        # SQL-запрос для получения time_job
+        select_query = """
+            SELECT time_job
+            FROM master
+            WHERE id = %s;
+        """
+
+        self.cursor.execute(select_query, (master_id,))
+        time_job_data = self.cursor.fetchone()  # Получаем один кортеж (одну строку)
+
+        if time_job_data:
+            return time_job_data[0]  # Возвращаем значение time_job
+        else:
+            return None  # Мастер не найден
+
+    def remove_entity(self, entity_type, id):
+        table_name = entity_type.lower()   # Имя таблицы
+
+        # SQL-запрос для удаления записи
+        delete_query = f"DELETE FROM {table_name} WHERE id = %s;"
+
+        self.cursor.execute(delete_query, (id,))
+        rows_deleted = self.cursor.rowcount  # Количество удалённых строк
+        self.connection.commit()
+
+        return rows_deleted > 0  # True, если удалена хотя бы 1 строка
+
+    def check_session_by_date(self, date_session):
+        # SQL-запрос для поиска сессии по дате
+        select_query = """
+            SELECT * 
+            FROM session
+            WHERE date = %s;
+        """
+
+        self.cursor.execute(select_query, (date_session,))
+        session_data = self.cursor.fetchone()
+
+        if session_data:
+            return session_data  # Возвращаем данные сессии
+        else:
+            print("Данные дата и время свободны")
+
+    def get_session_by_client_master(self, object):
+        # SQL-запрос для поиска сессии по client_id и master_id (без изменений)
+        select_query = """
+            SELECT * 
+            FROM session
+            WHERE client_id = %s AND master_id = %s;
+        """
+
+        self.cursor.execute(select_query, (object.client_id, object.master_id))
+
+        # Получаем имена столбцов
+        column_names = [desc[0] for desc in self.cursor.description]
+
+        # Преобразуем кортежи в словари (или возвращаем None)
+        sessions_list = []
+        for row in self.cursor.fetchall():
+            session_dict = dict(zip(column_names, row))
+            sessions_list.append(session_dict)
+
+        if sessions_list:
+            return sessions_list  # Возвращаем список словарей (сессий)
+        else:
+            return None  # Сессии не найдены
+
+    def update_review_by_id(self, review_id, new_rating=None, new_content=None):
+        # Формируем список обновляемых полей и значений
+        update_fields = []
+        update_values = []
+
+        if new_rating is not None:
+            update_fields.append("rating = %s")
+            update_values.append(new_rating)
+
+        if new_content is not None:
+            update_fields.append("content = %s")
+            update_values.append(new_content)
+
+        # Если есть поля для обновления, создаём SQL-запрос
+        if update_fields:
+            update_query = f"""
+                UPDATE review
+                SET {", ".join(update_fields)}
+                WHERE id = %s;
+            """
+            update_values.append(review_id)  # Добавляем review_id в конец списка значений
+
+            self.cursor.execute(update_query, tuple(update_values))
+            self.connection.commit()  # Подтверждаем изменения в базе
+
+    def get_all_session_by_client(self, client_id):
+        # SQL-запрос для получения всех сессий клиента (без изменений)
+        select_query = """
+            SELECT * 
+            FROM session
+            WHERE client_id = %s;
+        """
+
+        self.cursor.execute(select_query, (client_id,))
+
+        # Получаем имена столбцов (без изменений)
+        column_names = [desc[0] for desc in self.cursor.description]
+
+        # Преобразуем кортежи в словари
+        sessions_list = []
+        for row in self.cursor.fetchall():
+            session_dict = dict(zip(column_names, row))
+            sessions_list.append(session_dict)
+
+        return sessions_list  # Возвращаем список словарей (сессий)
+
+repository = PostgreSQLRepository()
+
+# print(repository.get_master_time_job(2))
+
+
+
+# session = Session(date="2024-04-15 12:00", service_id=2, client_id=1, master_id=3, branch_id=2)
+# ServiceLayer.add_object(session)
+
+# review = Review(content="Good service!", rating=5, client_id=1, master_id=3)
+# ServiceLayer.add_object(review)
+
+
+
+ServiceLayer.update_rewiew(2, 4, "Good gfhfgh!!!")
+
+# ServiceLayer.get_all_session_by_client(1)
