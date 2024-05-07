@@ -1,0 +1,278 @@
+from dataclasses import dataclass
+import psycopg2
+from dataclasses import fields, asdict
+
+# Класс Клиент (имя, адрес, номер телефона)
+@dataclass
+class Client:
+    full_name: str
+    address: str
+    phone: str
+
+
+# Класс Филиал (адрес)
+@dataclass(frozen=True)
+class Branch:
+    address: str
+
+# Класс Товар (наименование, цена, количество в наличии)
+@dataclass
+class Product:
+    name: str
+    price: int
+    count: int
+
+# Класс Покупка (дата покупки, количество купленного товара, id клиента-покупателя, id филиала-места выдачи)
+@dataclass(frozen=True)
+class Purchase:
+    date: str
+    quantity: int
+    client_id: int
+    product_id: int
+    branch_id: int
+
+
+# Класс Поставщик (наименование)
+@dataclass(frozen=True)
+class Provider:
+    name: str
+
+
+class PurchaseServise:
+    @staticmethod
+    def check_purchase(purchase, product, product_count_available, branch):
+
+        if product is None:
+            print('Выбранный товар не существует')
+            return False
+
+        if branch is None:
+            print('Выбранный филиал недоступен')
+            return False
+
+        if purchase.quantity > int(product_count_available):
+            print("Товара недостаточно на складе")
+            return False
+
+        return True
+
+
+class SupplyServise:
+    @staticmethod
+    def check_supply(product, provider):
+        if product is None:
+            print('Выбранный товар не существует')
+            return False
+
+        if provider is None:
+            print('Выбранный поставщик не существует')
+            return False
+        return True
+
+
+class ServiceLayer:
+    @staticmethod
+    def add_object(objectt):
+        if isinstance(objectt, Client):
+            repository.add_entity(objectt, 'client')
+
+        if isinstance(objectt, Branch):
+            repository.add_entity(objectt, 'branch')
+
+        if isinstance(objectt, Product):
+            repository.add_entity(objectt, 'product')
+
+        if isinstance(objectt, Provider):
+            repository.add_entity(objectt, 'provider')
+
+        if isinstance(objectt, Purchase):
+            product = repository.get_entity_by_id('product', objectt.product_id)
+            product_count_available = repository.get_product_count(objectt.product_id)
+            branch = repository.get_entity_by_id('branch', objectt.branch_id)
+            if PurchaseServise.check_purchase(objectt, product, product_count_available, branch):
+                repository.add_entity(objectt, 'purchase', )
+                repository.update_product_count(objectt.product_id, objectt.quantity, '-')
+
+
+    @staticmethod
+    def remove_object(object_name, id):
+        repository.remove_entity(object_name, id)
+
+    @staticmethod
+    def get_all_object(object_name):
+        print(repository.get_all_entities(object_name))
+
+    @staticmethod
+    def get_all_purchase_by_client(client_id):
+        print(repository.get_all_purchase_by_client_id(client_id))
+
+    @staticmethod
+    def order_a_product(product_id, provider_id, count):
+        product = repository.get_entity_by_id('product', product_id)
+        provider = repository.get_entity_by_id('provider', provider_id)
+        if SupplyServise.check_supply(product, provider):
+            repository.update_product_count(product_id, count, '+')
+
+
+
+
+
+class PostgreSQLRepository:
+    def __init__(self):
+        self.connection = psycopg2.connect(dbname="barbershop", user="postgres", password="1234", host="localhost")  # Connect to PostgreSQL
+        self.cursor = self.connection.cursor()
+
+    def __del__(self):
+        self.connection.close()  # Close connection on object deletion
+
+    def add_entity(self, entity, entity_type):
+        table_name = entity_type.lower()  # Определяем имя таблицы, предполагая множественное число (e.g., masters, services)
+        field_names = [field.name for field in fields(entity)]  # Получаем список имён полей из dataclass
+        values = [str(getattr(entity, field_name)) for field_name in field_names]  # Получаем список значений полей из объекта
+        placeholders = ",".join(["%s"] * len(field_names))  # Создаём плейсхолдеры для SQL-запроса
+
+        # SQL-запрос для вставки данных
+        insert_query = f"""
+            INSERT INTO {table_name} ({','.join(field_names)})
+            VALUES ({placeholders});
+        """
+
+        self.cursor.execute(insert_query, values)  # Выполняем запрос с подстановкой значений
+        self.connection.commit()  # Фиксируем изменения
+
+    def get_branch_by_administrator_master(self, entity_name, entity_id):
+        table_name = entity_name.lower()  # Получаем имя таблицы
+
+        # SQL-запрос для получения ID филиала
+        select_query = f"""
+            SELECT branch_id
+            FROM {table_name}
+            WHERE id = %s;
+        """
+
+        self.cursor.execute(select_query, (entity_id,))  # Выполняем запрос с ID сущности
+        branch_id = self.cursor.fetchone()  # Получаем результат (ID филиала)
+
+        if branch_id:
+            return branch_id[0]  # Возвращаем ID филиала
+        else:
+            return None  # Если сущность не найдена, возвращаем None
+
+    def get_entity_by_id(self, entity_name, id):
+        table_name = entity_name.lower()   # Имя таблицы
+        class_name = entity_name.capitalize()  # Имя класса (предполагаем соответствие имени таблицы и класса)
+
+        # SQL-запрос для получения данных сущности
+        select_query = f"SELECT * FROM {table_name} WHERE id = %s;"
+
+        self.cursor.execute(select_query, (id,))
+        entity_data = self.cursor.fetchone()
+
+        if entity_data:
+            # Создаём словарь {имя_поля: значение}
+            field_names = [field.name for field in fields(globals()[class_name])]  # Получаем имена полей из класса
+            entity_dict = dict(zip(field_names, entity_data))
+
+            # Создаём и возвращаем объект класса
+            return globals()[class_name](**entity_dict)
+        else:
+            return None  # Если объект не найден
+
+    def get_all_entities(self, entity_type):
+        table_name = entity_type.lower()   # Имя таблицы
+
+        # SQL-запрос для получения всех данных
+        select_query = f"SELECT * FROM {table_name};"
+
+        self.cursor.execute(select_query)
+        all_data = self.cursor.fetchall()
+
+        # Преобразуем данные в список словарей
+        result = []
+        for row in all_data:
+            row_dict = dict(zip([column[0] for column in self.cursor.description], row))
+            result.append(row_dict)
+
+        return result
+
+    def remove_entity(self, entity_type, id):
+        table_name = entity_type.lower()   # Имя таблицы
+
+        # SQL-запрос для удаления записи
+        delete_query = f"DELETE FROM {table_name} WHERE id = %s;"
+
+        self.cursor.execute(delete_query, (id,))
+        rows_deleted = self.cursor.rowcount  # Количество удалённых строк
+        self.connection.commit()
+
+        return rows_deleted > 0  # True, если удалена хотя бы 1 строка
+
+    def get_product_count(self, product_id):
+        select_query = """
+            SELECT count
+            FROM product
+            WHERE id = %s;
+        """
+
+        self.cursor.execute(select_query, (product_id,))
+
+        result = self.cursor.fetchone()  # Получаем одну строку (или None)
+
+        if result:
+            return result[0]  # Возвращаем значение 'count' из кортежа
+        else:
+            return None  # Продукт не найден
+
+    def update_product_count(self, product_id, count_diff, operation):
+        if operation not in ('+', '-'):
+            raise ValueError("Недопустимая операция. Используйте '+' или '-'")
+
+        update_query = """
+            UPDATE product
+            SET count = count {} %s
+            WHERE id = %s;
+        """
+
+        if operation == '+':
+            update_query = update_query.format('+')  # Добавление
+        else:
+            update_query = update_query.format('-')  # Вычитание
+
+        self.cursor.execute(update_query, (count_diff, product_id))
+        self.connection.commit()  # Сохраняем изменения
+
+    def get_all_purchase_by_client_id(self, id):
+        select_query = """
+            SELECT *
+            FROM purchase
+            WHERE client_id = %s;
+        """
+
+        self.cursor.execute(select_query, (id,))
+
+        # Получаем имена столбцов
+        column_names = [desc[0] for desc in self.cursor.description]
+
+        # Преобразуем кортежи в словари
+        purchases_list = []
+        for row in self.cursor.fetchall():
+            purchase_dict = dict(zip(column_names, row))
+            purchases_list.append(purchase_dict)
+
+        return purchases_list  # Возвращаем список словарей (покупок)
+
+repository = PostgreSQLRepository()
+
+
+
+product = Product(name="Shampoo 3", price=250, count=0)
+ServiceLayer.add_object(product)
+
+
+# provider = Provider(name="OOO Petrov ")
+# ServiceLayer.add_object(provider)
+
+# ServiceLayer.order_a_product(2, 1, 25)
+
+# purchase = Purchase(date="12-07-2024", quantity=5, client_id=1, product_id=2, branch_id=1)
+# ServiceLayer.add_object(purchase)
