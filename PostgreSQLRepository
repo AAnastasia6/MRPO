@@ -1,0 +1,315 @@
+from dataclasses import dataclass
+import psycopg2
+from dataclasses import fields, asdict
+
+
+# Класс Мастер (имя, номер телефона, филиал в котором работает мастер, время работы)
+@dataclass
+class Master:
+    full_name: str
+    phone: str
+    branch_id: int
+    time_job: str
+
+# Класс Администратор (имя, номер телефона, филиал в котором работает админ, время работы)
+@dataclass
+class Administrator:
+    full_name: str
+    phone: str
+    branch_id: int
+    time_job: str
+
+# Класс Услуга (наименование, цена услуги)
+@dataclass
+class Service:
+    name: str
+    price: int
+
+# Класс Филиал (адрес)
+@dataclass(frozen=True)
+class Branch:
+    address: str
+
+# Класс Акция (название, скидка в процентах, id услуги на которую применяется скидка, id администратора создавшего акцию))
+@dataclass(frozen=True)
+class Promotion:
+    name: str
+    discount: int
+    service_id: int
+    administrator_id: int
+
+
+class CheckPromotionService:
+    @staticmethod
+    def check_create_promotion(objectt, admin, service):
+
+        if admin is None:
+            print("Выбранный администратор не найден.")
+            return False
+
+        if service is None:
+            print("Выбранная услуга не найдена.")
+            return False
+
+        if not isinstance(objectt.discount, int):
+            return False
+        return True
+
+
+class CheckMasterService:
+    @staticmethod
+    def check_add_master(master):
+
+        if master.branch_id is None:
+            return False
+
+        start, end = map(int, master.time_job.split(" - "))
+
+
+        if end - start > 6:
+            print("Рабочий день мастера превышает 6 часов.")
+            print(f"Максимальное допустимое время работы: 6 часов. Рабочий день мастера: {end - start} часов.")
+            return False
+
+        return True
+
+    @staticmethod
+    def check_update_master(branch_master, branch_admin, new_time_job):
+
+        if branch_master != branch_admin:
+            return  False
+
+
+        start, end = map(int, new_time_job.split(" - "))
+
+        if end - start > 6:
+            print("Рабочий день мастера превышает 6 часов.")
+            print(f"Максимальное допустимое время работы: 6 часов. Рабочий день мастера: {end - start} часов.")
+            return False
+
+        return True
+
+
+class ServiceLayer:
+    @staticmethod
+    def add_object(objectt, admin_id=None):
+        if isinstance(objectt, Administrator):
+            repository.add_entity(objectt, 'administrator')
+
+        if isinstance(objectt, Master):
+            objectt.branch_id=repository.get_branch_by_administrator_master('administrator', admin_id)
+
+            if (CheckMasterService.check_add_master(objectt)):
+                repository.add_entity(objectt, 'master')
+            else:
+                print("Ошибка ввода данных")
+
+        if isinstance(objectt, Service):
+            repository.add_entity(objectt, 'service')
+
+        if isinstance(objectt, Branch):
+            repository.add_entity(objectt, 'branch')
+
+        if isinstance(objectt, Promotion):
+            admin = repository.get_entity_by_id('administrator', objectt.administrator_id)
+            service = repository.get_entity_by_id('service', objectt.service_id)
+            if (CheckPromotionService.check_create_promotion(objectt, admin, service)):
+                repository.add_entity(objectt, 'promotion')
+            else:
+                print("Ошибка ввода данных")
+
+    @staticmethod
+    def remove_object(object_name, id):
+        if (repository.remove_entity(object_name, id)):
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def get_all_object(object_name):
+        print(repository.get_all_entities(object_name))
+        return repository.get_all_entities(object_name)
+
+    @staticmethod
+    def get_promotions(admin_id):
+        print(repository.get_promotions_by_administrator_id(admin_id))
+        return repository.get_promotions_by_administrator_id(admin_id)
+
+    @staticmethod
+    def update_master_time_job(admin_id, master_id, new_time_job):
+        branch_master = repository.get_branch_by_administrator_master('master', master_id)
+        if branch_master is None:
+            return "Мастер не найден"
+        branch_admin = repository.get_branch_by_administrator_master('administrator', admin_id)
+        if branch_admin is None:
+            return "Администратор не найден"
+        if (CheckMasterService.check_update_master(branch_master, branch_admin, new_time_job)):
+            repository.update_master_time_job(master_id, new_time_job)
+            return True
+        else:
+            return ("Ошибка формата ввода интервала времени")
+
+
+
+
+
+class PostgreSQLRepository:
+    def __init__(self):
+        self.connection = psycopg2.connect(dbname="barbershop", user="postgres", password="1234", host="localhost")  # Connect to PostgreSQL
+        self.cursor = self.connection.cursor()
+
+    def __del__(self):
+        self.connection.close()  # Close connection on object deletion
+
+    def add_entity(self, entity, entity_type):
+        table_name = entity_type.lower()  # Определяем имя таблицы, предполагая множественное число (e.g., masters, services)
+        field_names = [field.name for field in fields(entity)]  # Получаем список имён полей из dataclass
+        values = [str(getattr(entity, field_name)) for field_name in field_names]  # Получаем список значений полей из объекта
+        placeholders = ",".join(["%s"] * len(field_names))  # Создаём плейсхолдеры для SQL-запроса
+
+        # SQL-запрос для вставки данных
+        insert_query = f"""
+            INSERT INTO {table_name} ({','.join(field_names)})
+            VALUES ({placeholders});
+        """
+
+        self.cursor.execute(insert_query, values)  # Выполняем запрос с подстановкой значений
+        self.connection.commit()  # Фиксируем изменения
+
+    def get_branch_by_administrator_master(self, entity_name, entity_id):
+        table_name = entity_name.lower()  # Получаем имя таблицы
+
+        # SQL-запрос для получения ID филиала
+        select_query = f"""
+            SELECT branch_id
+            FROM {table_name}
+            WHERE id = %s;
+        """
+
+        self.cursor.execute(select_query, (entity_id,))  # Выполняем запрос с ID сущности
+        branch_id = self.cursor.fetchone()  # Получаем результат (ID филиала)
+
+        if branch_id:
+            return branch_id[0]  # Возвращаем ID филиала
+        else:
+            return None  # Если сущность не найдена, возвращаем None
+
+    def get_entity_by_id(self, entity_name, id):
+        table_name = entity_name.lower()   # Имя таблицы
+        class_name = entity_name.capitalize()  # Имя класса (предполагаем соответствие имени таблицы и класса)
+
+        # SQL-запрос для получения данных сущности
+        select_query = f"SELECT * FROM {table_name} WHERE id = %s;"
+
+        self.cursor.execute(select_query, (id,))
+        entity_data = self.cursor.fetchone()
+
+        if entity_data:
+            # Создаём словарь {имя_поля: значение}
+            field_names = [field.name for field in fields(globals()[class_name])]  # Получаем имена полей из класса
+            entity_dict = dict(zip(field_names, entity_data))
+
+            # Создаём и возвращаем объект класса
+            return globals()[class_name](**entity_dict)
+        else:
+            return None  # Если объект не найден
+
+    def get_all_entities(self, entity_type):
+        table_name = entity_type.lower()   # Имя таблицы
+
+        # SQL-запрос для получения всех данных
+        select_query = f"SELECT * FROM {table_name};"
+
+        self.cursor.execute(select_query)
+        all_data = self.cursor.fetchall()
+
+        # Преобразуем данные в список словарей
+        result = []
+        for row in all_data:
+            row_dict = dict(zip([column[0] for column in self.cursor.description], row))
+            result.append(row_dict)
+
+        return result
+
+    def get_promotions_by_administrator_id(self, administrator_id):
+        # SQL-запрос для получения акций по ID администратора
+        select_query = """
+            SELECT *
+            FROM promotion
+            WHERE administrator_id = %s;
+        """
+
+        self.cursor.execute(select_query, (administrator_id,))
+
+        # Получаем имена столбцов из курсора
+        column_names = [desc[0] for desc in self.cursor.description]
+
+        # Преобразуем кортежи в словари
+        promotions_list = []
+        for row in self.cursor.fetchall():
+            promotion_dict = dict(zip(column_names, row))
+            promotions_list.append(promotion_dict)
+
+        return promotions_list  # Возвращаем список словарей
+
+    def remove_entity(self, entity_type, id):
+        table_name = entity_type.lower()   # Имя таблицы
+
+        # SQL-запрос для удаления записи
+        delete_query = f"DELETE FROM {table_name} WHERE id = %s;"
+
+        self.cursor.execute(delete_query, (id,))
+        rows_deleted = self.cursor.rowcount  # Количество удалённых строк
+        self.connection.commit()
+
+        return rows_deleted > 0  # True, если удалена хотя бы 1 строка
+
+    def update_master_time_job(self, master_id, new_time_job):
+        # SQL-запрос для обновления time_job
+        update_query = """
+            UPDATE master
+            SET time_job = %s
+            WHERE id = %s;
+        """
+
+        self.cursor.execute(update_query, (new_time_job, master_id))
+        self.connection.commit()  # Подтверждаем изменения в базе
+
+
+
+
+repository = PostgreSQLRepository()
+
+
+
+# master = Master(full_name="Petrov Petr", phone="987-654-321", branch_id=None, time_job="9 - 13")
+# ServiceLayer.add_object(objectt=master, admin_id = 1)
+
+# promotion = Promotion(name="Sale on Strishka", discount=10, service_id=1, administrator_id=2)
+# ServiceLayer.add_object(promotion)
+
+
+# branch = Branch(address="Piro, 25")
+# ServiceLayer.add_object(branch)
+#
+# administrator = Administrator(full_name="Sidorov Sidr", phone="123-456-789", branch_id=2, time_job="9-16")
+# ServiceLayer.add_object(administrator)
+
+
+# service = Service(name="Strishka", price=500)
+# ServiceLayer.add_object(service)
+
+
+
+
+
+
+
+
+# ServiceLayer.remove_object('promotion', 2)
+
+# ServiceLayer.get_all_object("service")
+
+# ServiceLayer.get_promotions(1)
+
+# ServiceLayer.update_master_time_job(admin_id=2, master_id=2, new_time_job='10 - 15')
