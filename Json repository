@@ -1,0 +1,306 @@
+import json
+import os
+from dataclasses import dataclass
+
+
+# Класс Мастер (имя, номер телефона, филиал в котором работает мастер, время работы)
+@dataclass
+class Master:
+    full_name: str
+    phone: str
+    branch_id: int
+    time_job: str
+
+# Класс Администратор (имя, номер телефона, филиал в котором работает админ, время работы)
+@dataclass
+class Administrator:
+    full_name: str
+    phone: str
+    branch_id: int
+    time_job: str
+
+# Класс Услуга (наименование, цена услуги)
+@dataclass
+class Service:
+    name: str
+    price: int
+
+# Класс Филиал (адрес)
+@dataclass(frozen=True)
+class Branch:
+    address: str
+
+# Класс Акция (название, скидка в процентах, id услуги на которую применяется скидка, id администратора создавшего акцию))
+@dataclass(frozen=True)
+class Promotion:
+    name: str
+    discount: int
+    service_id: int
+    administrator_id: int
+
+
+
+
+
+# File path
+file_path = 'data.json'
+
+if not os.path.exists(file_path):
+    # Create the initial JSON structure
+    data = {
+        'administrators': [],
+        'masters': [],
+        'branchs': [],
+        'services': [],
+        'promotions': [],
+        'clients': [],
+        'reviews': [],
+        'sessions': [],
+        'purchases': [],
+        'providers': [],
+        'products': []
+    }
+
+    with open(file_path, 'w') as f:
+        json.dump(data, f, indent=4)
+    print("File 'data.json' successfully created.")
+else:
+    print("File 'data.json' already exists.")
+
+
+
+class CheckPromotionService:
+    @staticmethod
+    def check_create_promotion(objectt, admin, service):
+
+        if admin is None:
+            print("Выбранный администратор не найден.")
+            return False
+
+        if service is None:
+            print("Выбранная услуга не найдена.")
+            return False
+
+        if not isinstance(objectt.discount, int):
+            return False
+        return True
+
+
+class CheckMasterService:
+    @staticmethod
+    def check_add_master(master):
+
+        if master.branch_id is None:
+            return False
+
+        start, end = map(int, master.time_job.split(" - "))
+
+
+        if end - start > 6:
+            print("Рабочий день мастера превышает 6 часов.")
+            print(f"Максимальное допустимое время работы: 6 часов. Рабочий день мастера: {end - start} часов.")
+            return False
+
+        return True
+
+    @staticmethod
+    def check_update_master(branch_master, branch_admin, new_time_job):
+
+        if branch_master != branch_admin:
+            return  False
+
+
+        start, end = map(int, new_time_job.split(" - "))
+
+        if end - start > 6:
+            print("Рабочий день мастера превышает 6 часов.")
+            print(f"Максимальное допустимое время работы: 6 часов. Рабочий день мастера: {end - start} часов.")
+            return False
+
+        return True
+
+class ServiceLayer:
+    @staticmethod
+    def add_object(objectt, admin_id=None):
+        if isinstance(objectt, Administrator):
+            id=repository.get_id_new('administrator')
+            repository.add_entity(objectt, 'administrator', id)
+
+        if isinstance(objectt, Master):
+            objectt.branch_id=repository.get_branch_by_administrator_master('administrator', admin_id)
+
+            id=repository.get_id_new('master')
+
+            if (CheckMasterService.check_add_master(objectt)):
+                repository.add_entity(objectt, 'master', id)
+                return True
+            else:
+                print("Ошибка ввода данных")
+                return False
+
+        if isinstance(objectt, Service):
+            id=repository.get_id_new('service')
+            repository.add_entity(objectt, 'service', id)
+            return True
+
+
+        if isinstance(objectt, Branch):
+            id=repository.get_id_new('branch')
+            repository.add_entity(objectt, 'branch', id)
+
+        if isinstance(objectt, Promotion):
+            id = repository.get_id_new('promotion')
+            admin = repository.get_entity_by_id('administrator', objectt.administrator_id)
+            service = repository.get_entity_by_id('service', objectt.service_id)
+            if (CheckPromotionService.check_create_promotion(objectt, admin, service)):
+                repository.add_entity(objectt, 'promotion', id)
+                return True
+            else:
+                print("Ошибка ввода данных")
+                return False
+
+    @staticmethod
+    def remove_object(object_name, id):
+        if (repository.remove_entity(object_name, id)):
+            return True
+        else: return False
+
+    @staticmethod
+    def get_all_object(object_name):
+        print(repository.get_all_entities(object_name))
+        return repository.get_all_entities(object_name)
+
+    @staticmethod
+    def get_promotions(admin_id):
+        print(repository.get_promotions_by_administrator_id(admin_id))
+        return repository.get_promotions_by_administrator_id(admin_id)
+
+    @staticmethod
+    def update_master_time_job(admin_id, master_id, new_time_job):
+        branch_master = repository.get_branch_by_administrator_master('master', master_id)
+        if not branch_master:
+            return "Мастер не найден"
+        branch_admin = repository.get_branch_by_administrator_master('administrator', admin_id)
+        if not branch_admin:
+            return "Администратор не найден"
+        if (CheckMasterService.check_update_master(branch_master, branch_admin, new_time_job)):
+            repository.update_master_time_job(master_id,new_time_job)
+            return True
+        else:
+            return ("Ошибка формата ввода интервала времени")
+
+
+
+
+
+class JSONRepository:
+    def __init__(self, file_path):
+        self.file_path = file_path
+        with open(file_path, 'r') as f:
+            self.data = json.load(f)
+
+    def get_id_new(self, entity_name):
+        entity_list = self.data.get(entity_name + "s", [])
+        max_id = 0
+        for entity in entity_list:
+            entity_id = int(entity.get('id', 0))
+            max_id = max(max_id, entity_id)
+
+        print(f"Максимальный id для элементов: {max_id}")
+        return max_id + 1
+
+    def add_entity(self, entity, entity_type, id):
+        entity_list = self.data.get(entity_type + "s", [])
+        entity_list.append({"id": str(id)})
+        for prop, value in vars(entity).items():
+            if not prop.startswith("_"):
+                entity_list[-1][prop] = str(value)
+        self.save_data()
+        print(f"{entity_type.capitalize()} успешно добавлен.")
+
+
+
+    def remove_entity(self, entity_type, id):
+        entity_list = self.data.get(entity_type + "s", [])
+        for i, entity in enumerate(entity_list):
+            if entity.get("id") == str(id):
+                del entity_list[i]
+                self.save_data()
+                print(f"{entity_type.capitalize()} с id {id} успешно удален.")
+                return True
+
+        print(f"{entity_type.capitalize()} с id {id} не найден.")
+        return False
+
+    def get_entity_by_id(self, entity_name, id):
+        entity_list = self.data.get(entity_name + "s", [])
+        for entity in entity_list:
+            if entity.get('id') == str(id):
+                return entity
+        return None
+
+    def get_branch_by_administrator_master(self, entity_name, entity_id):
+        entity = self.get_entity_by_id(entity_name, entity_id)
+        if entity is not None:
+            branch_id = entity.get("branch_id")
+            print(f"Branch ID: {branch_id}")
+            return branch_id
+        else:
+            print("Администратор не найден.")
+            return False
+
+    def get_all_entities(self, entity_type):
+        return self.data.get(entity_type + "s", [])
+
+    def get_promotions_by_administrator_id(self, administrator_id):
+        promotions = []
+        for promotion in self.data.get("promotions", []):
+            if promotion.get("administrator_id") == str(administrator_id):
+                promotions.append(promotion)
+        return promotions
+
+    def update_master_time_job(self, master_id, new_time_job):
+        masters_element = self.data.get("masters", [])
+        for i, master in enumerate(masters_element):
+            if master.get("id") == str(master_id):
+                masters_element[i]["time_job"] = new_time_job
+                self.save_data()
+                print(f"Рабочие часы мастера с id {master_id} успешно обновлены.")
+                return
+
+        print(f"Мастер с id {master_id} не найден.")
+
+    def save_data(self):
+        with open(self.file_path, 'w') as f:
+            json.dump(self.data, f, indent=4)
+
+
+repository = JSONRepository('data.json')
+
+
+# master = Master(full_name="Petrov Petr", phone="987-654-321", branch_id=None, time_job="9 - 15")
+# ServiceLayer.add_object(objectt=master, admin_id = 1)
+
+# administrator = Administrator(full_name="Ivanov Ivan", phone="123-456-789", branch_id=1, time_job="9-16")
+# ServiceLayer.add_object(administrator)
+
+# print(repository.get_all_entities("service"))
+# service = Service(name="Strishka", price=500)
+# ServiceLayer.add_object(service)
+
+#
+# branch = Branch(address="Pira, 25")
+# ServiceLayer.add_object(branch)
+
+
+# promotion = Promotion(name="Sale on Strishka", discount=10, service_id=1, administrator_id=1)
+# ServiceLayer.add_object(promotion)
+
+
+# ServiceLayer.remove_object('branch', 3)
+
+# ServiceLayer.get_all_object("service")
+
+# ServiceLayer.get_promotions(1)
+
+# ServiceLayer.update_master_time_job(admin_id=1, master_id=1, new_time_job='13 - 17')
