@@ -1,0 +1,65 @@
+from fastapi import FastAPI, HTTPException
+from Product_6 import *
+from typing import List
+
+app = FastAPI()
+
+@app.get("/branches/", response_model=List[Branch])
+async def get_all_branches():
+    branches = ServiceLayer.get_all_object('branch')
+    if branches:
+        return branches
+    else:
+        raise HTTPException(status_code=404, detail="Филиалы не найдены")
+
+@app.get("/providers/", response_model=List[Provider])
+async def get_all_providers():
+    providers = ServiceLayer.get_all_object('provider')
+    if providers:
+        return providers
+    else:
+        raise HTTPException(status_code=404, detail="Поставщики не найдены")
+
+@app.get("/products/", response_model=List[Product])
+async def get_all_products():
+    products = ServiceLayer.get_all_object('product')
+    if products:
+        return products
+    else:
+        raise HTTPException(status_code=404, detail="Товары не найдены")
+
+@app.get("/purchases/{client_id}", response_model=List[Purchase])
+async def get_all_purchases_by_client(client_id: int):
+    purchases = ServiceLayer.get_all_purchase_by_client(client_id)
+    if purchases:
+        return purchases
+    else:
+        raise HTTPException(status_code=404, detail="Покупки не найдены")
+
+
+@app.post("/client/")
+async def create_client(client: Client):
+    ServiceLayer.add_object(client)
+    return {"msg": "Клиент успешно зарегистрирован"}
+
+@app.patch("/product/{product_id}")
+async def order_a_product(product_id: int, provider_id: int, count: int):
+    result = ServiceLayer.order_a_product(product_id, provider_id, count)
+    if result == True:
+        return {"msg": "Колличество товара успешно обновлено"}
+    else:
+        raise HTTPException(status_code=422, detail="Ошибка ввода данных")
+
+@app.post("/Purchase/")
+async def create_review(review: Purchase):
+    if ServiceLayer.add_object(review):
+        return {"msg": "Заказ успешно добавлен"}
+    else:
+        raise HTTPException(status_code=422, detail="Ошибка ввода данных")
+
+@app.delete("/purchase/{purchase_id}")
+async def delete_review(purchase_id: int):
+    if not ServiceLayer.remove_purchase(purchase_id):
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+    else:
+        return {"msg": "Заказ успешно удален"}
