@@ -1,0 +1,334 @@
+from dataclasses import dataclass
+import json
+import os
+
+# Определение классов данных
+@dataclass
+class Client:
+    full_name: str
+    address: str
+    phone: str
+
+@dataclass
+class Master:
+    full_name: str
+    phone: str
+    branch_id: int
+    time_job: str
+
+@dataclass
+class Service:
+    name: str
+    price: int
+
+@dataclass(frozen=True)
+class Branch:
+    address: str
+
+
+@dataclass
+class Review:
+    content: str
+    rating: int
+    client_id: int
+    master_id: int
+
+@dataclass(frozen=True)
+class Session:
+    date: str
+    service_id: int
+    client_id: int
+    master_id: int
+    branch_id:int
+
+# File path
+file_path = 'data.json'
+
+if not os.path.exists(file_path):
+    # Create the initial JSON structure
+    data = {
+        'administrators': [],
+        'masters': [],
+        'branchs': [],
+        'services': [],
+        'promotions': [],
+        'clients': [],
+        'reviews': [],
+        'sessions': [],
+        'purchases': [],
+        'providers': [],
+        'products': []
+    }
+
+    with open(file_path, 'w') as f:
+        json.dump(data, f, indent=4)
+    print("File 'data.json' successfully created.")
+else:
+    print("File 'data.json' already exists.")
+
+class SessionService:
+    @staticmethod
+    def check_booking(session, master_time_job, branch_master, session_is_empty):
+
+        if session_is_empty is not None:
+            print("Данное время записи занято")
+            return False
+
+        if session.branch_id != branch_master:
+            print(type(session.branch_id))
+            print(type(branch_master))
+            print("Мастер не работает в выбранном филиале")
+            return False
+
+        # Разбиваем строку time_job на начало и конец интервала
+        start_time, end_time = map(int, master_time_job.split(' - '))
+        # Получаем часы из строки date
+        hour = int(session.date.split()[1].split(':')[0])
+        # Проверяем, что часы находятся в указанном интервале
+        if not (start_time <= hour <= end_time):
+            print("Выбранное время не соответствует рабочим часам мастера.")
+            return False
+
+        return True
+
+class ReviewService:
+    @staticmethod
+    def leave_review(review, session):
+        if session is None:
+            print("Запись не найдены")
+            return False
+
+        if isinstance(review.rating, int):  # Проверяем, что review является числом
+            review_raiting = int(review.rating)  # Преобразуем review в целое число
+            if 1 <= review_raiting <= 5:
+                return True
+            else:
+                print("Неверный формат оценки")
+                return False
+        else:
+            print("Неверный формат оценки")
+            return False
+
+        return True
+
+    @staticmethod
+    def update_review(rating, review):
+        if review is None:
+            print("Отзыв не найдены")
+            return False
+
+        if rating is not None:
+            if isinstance(rating, int):  # Проверяем, что review является числом
+                review_raiting = int(rating)  # Преобразуем review в целое число
+                if 1 <= review_raiting <= 5:
+                    return True
+                else:
+                    print("Неверный формат оценки")
+                    return False
+            else:
+                print("Неверный формат оценки")
+                return False
+
+        return True
+
+class ServiceLayer:
+    @staticmethod
+    def add_object(objectt):
+
+        if isinstance(objectt, Client):
+            id = repository.get_id_new('client')
+            repository.add_entity(objectt, 'client', id)
+
+        if isinstance(objectt, Review):
+            id = repository.get_id_new('review')
+            session = repository.get_session_by_client_master(objectt)
+            if ReviewService.leave_review(objectt, session):
+                repository.add_entity(objectt, 'review', id)
+                return True
+            else:
+                return False
+
+        if isinstance(objectt, Service):
+            id=repository.get_id_new('service')
+            repository.add_entity(objectt, 'service', id)
+
+        if isinstance(objectt, Branch):
+            id=repository.get_id_new('branch')
+            repository.add_entity(objectt, 'branch', id)
+
+        if isinstance(objectt, Session):
+            id = repository.get_id_new('session')
+            master_time_job = repository.get_master_time_job(objectt.master_id)
+            branch_master = repository.get_branch_by_administrator_master('master', objectt.master_id)
+            session_is_empty = repository.check_session_by_date(objectt.date)
+            if SessionService.check_booking(objectt, master_time_job, branch_master, session_is_empty):
+                repository.add_entity(objectt, 'session', id)
+                return True
+            else:
+                return False
+
+    @staticmethod
+    def remove_object(object_name, id):
+        if (repository.remove_entity(object_name, id)):
+            return True
+        else:
+            return False
+
+
+    @staticmethod
+    def get_all_object(object_name):
+        return repository.get_all_entities(object_name)
+
+    @staticmethod
+    def update_rewiew(review_id, new_raiting=None, new_content=None):
+        review= repository.get_entity_by_id('review', review_id)
+        if not review:
+            return "Отзыв не найден"
+        if ReviewService.update_review(new_raiting, review):
+            repository.update_rewiew_by_id(review_id, new_raiting, new_content)
+            return True
+        else:
+            return "Ошибка ввода данных"
+
+    @staticmethod
+    def get_all_session_by_client(id):
+        return repository.get_all_session_by_client(id)
+
+
+
+class JSONRepository:
+    def __init__(self, file_path):
+        self.file_path = file_path
+        with open(file_path, 'r') as f:
+            self.data = json.load(f)
+
+    def get_id_new(self, entity_name):
+        entity_list = self.data.get(entity_name + "s", [])
+        max_id = 0
+        for entity in entity_list:
+            entity_id = int(entity.get('id', 0))
+            max_id = max(max_id, entity_id)
+
+        print(f"Максимальный id для элементов: {max_id}")
+        return max_id + 1
+
+    def add_entity(self, entity, entity_type, id):
+        entity_list = self.data.get(entity_type + "s", [])
+        entity_list.append({"id": str(id)})
+        for prop, value in vars(entity).items():
+            if not prop.startswith("_"):
+                entity_list[-1][prop] = str(value)
+        self.save_data()
+        print(f"{entity_type.capitalize()} успешно добавлен.")
+
+
+
+    def remove_entity(self, entity_type, id):
+        entity_list = self.data.get(entity_type + "s", [])
+        for i, entity in enumerate(entity_list):
+            if entity.get("id") == str(id):
+                del entity_list[i]
+                self.save_data()
+                print(f"{entity_type.capitalize()} с id {id} успешно удален.")
+                return True
+
+        print(f"{entity_type.capitalize()} с id {id} не найден.")
+        return False
+
+    def get_entity_by_id(self, entity_name, id):
+        entity_list = self.data.get(entity_name + "s", [])
+        for entity in entity_list:
+            if entity.get('id') == str(id):
+                return entity
+        return None
+
+    def get_branch_by_administrator_master(self, entity_name, entity_id):
+        entity = self.get_entity_by_id(entity_name, entity_id)
+        if entity is not None:
+            branch_id = entity.get("branch_id")
+            print(f"Branch ID: {branch_id}")
+            return int(branch_id)
+        else:
+            print("Администратор не найден.")
+            return False
+
+    def get_all_entities(self, entity_type):
+        return self.data.get(entity_type + "s", [])
+
+    def get_master_time_job(self, master_id):
+        masters_element = self.data.get("masters", [])
+        for master in masters_element:
+            if master.get("id") == str(master_id):
+                print(f"time_job: {master.get('time_job')}")
+                return master.get('time_job')
+        print("Мастер не найден.")
+        return None
+
+    def get_all_session_by_client(self, client_id):
+        sessions = self.data.get("sessions", [])
+        result = []
+        for session in sessions:
+            if session.get("client_id") == str(client_id):
+                result.append(session)
+        return result
+
+    def get_session_by_client_master(self, object):
+        sessions = self.data.get("sessions", [])
+        for session in sessions:
+            if session.get("client_id") == str(object.client_id) and session.get("master_id") == str(object.master_id):
+                return session
+        print("Сессия для указанных client_id и master_id не найдена")
+        return None
+
+    def check_session_by_date(self, date_session):
+        sessions = self.data.get("sessions", [])
+        for session in sessions:
+            if session.get("date") == date_session:
+                return session
+        print("Данные дата и время записи свободны")
+        return None
+
+    def update_rewiew_by_id(self, review_id, new_rating=None, new_content=None):
+        reviews = self.data.get("reviews", [])
+        for i, review in enumerate(reviews):
+            if review.get('id') == str(review_id):
+                if new_rating is not None:
+                    reviews[i]["rating"] = str(new_rating)
+                if new_content is not None:
+                    reviews[i]["content"] = new_content
+                self.save_data()
+                print(f"Данные успешно обновлены")
+                return
+
+        print(f"Отзыв с id {review_id} не найден.")
+
+    def save_data(self):
+        with open(self.file_path, 'w') as f:
+            json.dump(self.data, f, indent=4)
+
+
+
+
+
+repository = JSONRepository('data.json')
+
+
+
+# client = Client(full_name="Ivanov Ivan", address="Mira, 28", phone="123-456-789")
+# ServiceLayer.add_object(client)
+
+
+# session = Session(date="2024-04-10 17:00", service_id=1, client_id=1, master_id=1, branch_id=1)
+# ServiceLayer.add_object(session)
+
+# review = Review(content="Good service!", rating=4, client_id=1, master_id=1)
+# ServiceLayer.add_object(review)
+
+
+
+
+# ServiceLayer.remove_object('review', 2)
+
+# print(ServiceLayer.get_all_object("review"))
+
+# ServiceLayer.update_rewiew(review_id =1, new_raiting=4, new_content ="Goo00000d!")
